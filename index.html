@@ -418,7 +418,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -1198,8 +1198,8 @@ function pintarNotis() {
   $('#n-opciones').innerHTML = AVISOS.map(([k, n]) => `<label class="opt"><input type="checkbox" data-av="${k}" ${LS.get('av_' + k, true) ? 'checked' : ''}><span>${n}</span></label>`).join('');
   $('#n-copiar').disabled = !on;
   $('#n-nota').textContent = conToken()
-    ? 'Los avisos los envía GitHub al actualizar los datos (sobre las 15:00 y las 22:30, de lunes a viernes). Tus estrellas y avisos se guardan solos en GitHub.'
-    : 'Los avisos los envía GitHub al actualizar los datos (sobre las 15:00 y las 22:30, de lunes a viernes). Sin token, si cambias estas opciones o las acciones que sigues, copia el código otra vez y actualízalo en GitHub.';
+    ? 'Los avisos los envía GitHub al actualizar los datos (4 veces al día, de lunes a viernes: sobre las 10:00, 15:00, 18:30 y 22:30). Tus estrellas y avisos se guardan solos en GitHub.'
+    : 'Los avisos los envía GitHub al actualizar los datos (4 veces al día, de lunes a viernes: sobre las 10:00, 15:00, 18:30 y 22:30). Sin token, si cambias estas opciones o las acciones que sigues, copia el código otra vez y actualízalo en GitHub.';
   const primera = !LS.get('sub_copiado', '');
   const txt = `<div class="aviso"><b>${primera ? 'Último paso.' : conToken() ? 'Has vuelto a activar las notificaciones.' : 'Tus avisos han cambiado.'}</b> ${primera ? 'Copia el código y pégalo en GitHub como secreto PUSH_CONFIG.' : 'Copia el código otra vez y actualiza el secreto PUSH_CONFIG en GitHub.'}<button class="btn ac" data-copiar="1">Copiar código para GitHub</button></div>`;
   const pend = pendientePush();
