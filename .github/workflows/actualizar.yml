@@ -1,0 +1,50 @@
+name: Actualizar datos
+
+on:
+  schedule:
+    - cron: '0 14 * * 1-5'    # 15:00 en España (antes de abrir Wall Street)
+    - cron: '30 21 * * 1-5'   # 22:30 en España (tras el cierre de Wall Street)
+  workflow_dispatch:
+    inputs:
+      prueba:
+        description: 'Solo enviar una notificación de prueba (no actualiza datos)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: actualizar-datos
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar librerías
+        run: pip install -r requirements.txt
+
+      - name: Analizar acciones
+        env:
+          PUSH_CONFIG: ${{ secrets.PUSH_CONFIG }}
+          PRUEBA: ${{ inputs.prueba }}
+        run: python analizar.py
+
+      - name: Guardar resultados
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add datos.json series.json carteras.json
+          git commit -m "Datos actualizados" || exit 0
+          git pull --rebase
+          git push
