@@ -1,8 +1,10 @@
 name: Actualizar datos
 
 on:
-  schedule:
+    schedule:
+    - cron: '0 9 * * 1-5'     # 10:00 en España (bolsa europea abierta)
     - cron: '0 14 * * 1-5'    # 15:00 en España (antes de abrir Wall Street)
+    - cron: '30 17 * * 1-5'   # 18:30 en España (mitad de la sesión americana)
     - cron: '30 21 * * 1-5'   # 22:30 en España (tras el cierre de Wall Street)
   workflow_dispatch:
     inputs:
