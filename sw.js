@@ -1,6 +1,6 @@
 // Apex Quant Pro - service worker
 // IMPORTANTE: cambia este nombre cada vez que subas una versión nueva de index.html
-const CACHE = 'apex-pro-v1.1.2';
+const CACHE = 'apex-pro-v1.2.0';
 const BASICOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './badge-96.png'];
 
 self.addEventListener('install', e => {
@@ -18,8 +18,9 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET') return;
-  // La IA (Gemini) nunca se guarda en caché
-  if (url.hostname.includes('googleapis.com') && !url.hostname.includes('fonts')) return;
+  // Otros dominios (IA de Gemini, GitHub…) nunca pasan por la caché,
+  // salvo las fuentes y la librería de gráficos
+  if (url.origin !== self.location.origin && !/fonts\.(googleapis|gstatic)\.com|cdn\.jsdelivr\.net/.test(url.hostname)) return;
   const esDatos = url.pathname.endsWith('.json') || url.pathname.endsWith('/') || url.pathname.endsWith('.html');
   if (esDatos) {
     // Red primero (datos frescos); si no hay conexión, lo último guardado

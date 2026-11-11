@@ -38,6 +38,7 @@ F_DATOS = os.path.join(BASE, "datos.json")
 F_SERIES = os.path.join(BASE, "series.json")
 F_CART = os.path.join(BASE, "carteras.json")
 F_TICK = os.path.join(BASE, "tickers.txt")
+F_AVISOS = os.path.join(BASE, "avisos.json")
 
 INDICES = [("^GSPC", "S&P 500"), ("^IXIC", "Nasdaq"), ("^DJI", "Dow Jones"), ("^IBEX", "IBEX 35")]
 
@@ -799,6 +800,19 @@ def leer_config_push():
         return None
     devs = cfg.get("dispositivos") or ([cfg["dispositivo"]] if cfg.get("dispositivo") else [])
     cfg["_devs"] = [d for d in devs if d.get("sub") and d.get("vapid_priv")]
+    # Si la app guarda tus estrellas y avisos en avisos.json, mandan sobre los del código
+    try:
+        with open(F_AVISOS, encoding="utf-8") as f:
+            av = json.load(f)
+        if isinstance(av.get("favs"), list):
+            cfg["favs"] = av["favs"]
+        if isinstance(av.get("avisos"), dict):
+            cfg["avisos"] = av["avisos"]
+        print(f"Avisos leídos de avisos.json ({len(cfg.get('favs') or [])} acciones seguidas)")
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print("AVISO: avisos.json no se ha podido leer:", e)
     return cfg if cfg["_devs"] else None
 
 

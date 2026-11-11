@@ -343,10 +343,16 @@ a{color:var(--ac)}
       <div class="btns"><button class="btn" id="n-activar">Activar notificaciones</button><button class="btn sec" id="n-probar">Probar en este móvil</button></div>
       <h3 style="margin:18px 0 4px;font-size:15px">Avisarme cuando…</h3>
       <div id="n-opciones"></div>
+      <h3 style="margin:18px 0 4px;font-size:15px">Guardar mis cambios en GitHub automáticamente</h3>
+      <p class="mu" style="margin:0;font-size:13.5px">Con un token de GitHub, la app avisa sola a GitHub cuando cambias estrellas o avisos.</p>
+      <label class="campo"><span>Token de GitHub</span>
+        <input id="ghtoken" type="password" placeholder="Pega aquí tu token (empieza por github_pat_…)" autocomplete="off"></label>
+      <div class="btns"><button class="btn sec" id="gh-guardar">Guardar y comprobar token</button></div>
+      <div class="estado" id="gh-estado" style="margin-top:10px"></div>
       <div id="n-pendiente"></div>
       <div class="btns"><button class="btn ac" id="n-copiar">Copiar código para GitHub</button></div>
       <div id="n-codigo"></div>
-      <p class="nota">Los avisos los envía GitHub cuando actualiza los datos (sobre las 15:00 y las 22:30, de lunes a viernes). Si cambias estas opciones o las acciones que sigues, copia el código otra vez y actualízalo en GitHub.</p>
+      <p class="nota" id="n-nota"></p>
     </div>
     <div class="card">
       <h3>Aspecto</h3>
@@ -407,7 +413,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.2.0';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -1032,7 +1038,7 @@ function pintarFav() { const b = $('#f-fav'); const on = actual && esFav(actual.
 function alternarFav() {
   const f = LS.get('favs', []), s = actual.s, i = f.indexOf(s);
   if (i >= 0) { f.splice(i, 1); toast(s + ' quitada de seguimiento'); } else { f.push(s); toast(s + ' añadida a seguimiento'); }
-  LS.set('favs', f); pintarFav(); pintarNotis();
+  LS.set('favs', f); pintarFav(); pintarNotis(); programarSync();
 }
 function pintarSeguimiento() {
   if (!D) return;
@@ -1091,7 +1097,83 @@ function codigoPush() {
   return JSON.stringify({ v: 1, web: location.origin + location.pathname, dispositivo: { vapid_pub: k.pub, vapid_priv: k.priv, sub: LS.get('sub', null) }, favs: LS.get('favs', []), avisos: prefsAvisos() });
 }
 const firmaPush = () => JSON.stringify([LS.get('sub', {})?.endpoint, LS.get('favs', []).slice().sort(), prefsAvisos()]);
-const pendientePush = () => notisActivas() && LS.get('firma_push', '') !== firmaPush();
+const endpointActual = () => LS.get('sub', {})?.endpoint || '';
+const conToken = () => !!LS.get('ghtoken', '');
+// Con token: solo hay que copiar el código si el móvil se ha vuelto a registrar.
+// Sin token: también cuando cambian las estrellas o los avisos.
+function pendientePush() {
+  if (!notisActivas()) return false;
+  if (conToken()) return LS.get('sub_copiado', '') !== endpointActual();
+  return LS.get('firma_push', '') !== firmaPush();
+}
+(function migrar() { // versiones anteriores: recordar qué móvil se copió ya a GitHub
+  const f = LS.get('firma_push', '');
+  if (f && !LS.get('sub_copiado', '')) { try { LS.set('sub_copiado', JSON.parse(f)[0] || ''); } catch (e) {} }
+})();
+
+/* ---------- Sincronización con GitHub (avisos.json) ---------- */
+function repoGitHub() {
+  const owner = location.hostname.split('.')[0];
+  const repo = location.pathname.split('/').filter(Boolean)[0] || (owner + '.github.io');
+  return { owner, repo };
+}
+const datosSync = () => ({ favs: LS.get('favs', []).slice().sort(), avisos: prefsAvisos() });
+async function gh(ruta, op = {}) {
+  const { owner, repo } = repoGitHub();
+  const r = await fetchT(`https://api.github.com/repos/${owner}/${repo}/${ruta}`, {
+    ...op, cache: 'no-store',
+    headers: { 'Authorization': 'Bearer ' + LS.get('ghtoken', ''), 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(op.headers || {}) }
+  }, 20000);
+  if (r.status === 401) throw new Error('El token no es válido o ha caducado. Crea uno nuevo en GitHub.');
+  if (r.status === 403) throw new Error('El token no tiene permiso para escribir. Revisa que tenga «Contents: Read and write» sobre apex-quant-pro, o que la organización lo haya aprobado.');
+  if (r.status === 404 && !ruta.startsWith('contents/avisos.json')) throw new Error('El token no puede ver el repositorio apex-quant-pro. Revisa que lo hayas elegido al crearlo.');
+  return r;
+}
+let syncT = null, syncando = false;
+function pintarSync(estado, txt) {
+  const e = $('#gh-estado'); if (!e) return;
+  e.className = 'estado' + (estado === 'ok' ? ' ok' : '');
+  e.innerHTML = estado === 'cargando' ? `<span class="spin"></span><span>${esc(txt)}</span>` : estado === 'error' ? `<span class="dn">✗ ${esc(txt)}</span>` : `<i></i><span>${esc(txt)}</span>`;
+}
+function estadoSync() {
+  if (!conToken()) return pintarSync('', 'Sin token: tendrás que copiar el código a GitHub cuando cambies algo.');
+  const u = LS.get('sync_ok', null);
+  if (u && u.firma === JSON.stringify(datosSync())) pintarSync('ok', 'Sincronizado con GitHub · ' + new Date(u.t).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
+  else pintarSync('', 'Hay cambios pendientes de guardar en GitHub.');
+}
+function programarSync() {
+  if (!conToken()) return;
+  clearTimeout(syncT);
+  pintarSync('cargando', 'Guardando cambios en GitHub…');
+  syncT = setTimeout(() => sincronizar().catch(() => {}), 2500);
+}
+async function sincronizar() {
+  if (!conToken() || syncando) return;
+  syncando = true;
+  const datos = datosSync(), firma = JSON.stringify(datos);
+  try {
+    pintarSync('cargando', 'Guardando cambios en GitHub…');
+    let sha;
+    const g = await gh('contents/avisos.json');
+    if (g.ok) {
+      const j = await g.json(); sha = j.sha;
+    }
+    const contenido = JSON.stringify({ ...datos, actualizado: new Date().toISOString() }, null, 1);
+    const p = await gh('contents/avisos.json', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Avisos actualizados desde la app', content: btoa(unescape(encodeURIComponent(contenido))), ...(sha ? { sha } : {}) })
+    });
+    if (!p.ok) { const j = await p.json().catch(() => ({})); throw new Error('GitHub ha respondido: ' + (j.message || p.status)); }
+    LS.set('sync_ok', { t: Date.now(), firma });
+    syncando = false;
+    if (JSON.stringify(datosSync()) !== firma) return sincronizar(); // cambios hechos mientras se guardaba
+    estadoSync(); pintarNotis();
+  } catch (e) {
+    syncando = false;
+    pintarSync('error', e.message);
+    throw e;
+  }
+}
 function pintarNotis() {
   const on = notisActivas(), e = $('#n-estado');
   e.classList.toggle('ok', on);
@@ -1099,8 +1181,11 @@ function pintarNotis() {
   $('#n-activar').textContent = on ? 'Volver a activar' : 'Activar notificaciones';
   $('#n-opciones').innerHTML = AVISOS.map(([k, n]) => `<label class="opt"><input type="checkbox" data-av="${k}" ${LS.get('av_' + k, true) ? 'checked' : ''}><span>${n}</span></label>`).join('');
   $('#n-copiar').disabled = !on;
-  const primera = !LS.get('firma_push', '');
-  const txt = `<div class="aviso"><b>${primera ? 'Último paso.' : 'Tus avisos han cambiado.'}</b> ${primera ? 'Copia el código y pégalo en GitHub como secreto PUSH_CONFIG.' : 'Copia el código otra vez y actualiza el secreto PUSH_CONFIG en GitHub.'}<button class="btn ac" data-copiar="1">Copiar código para GitHub</button></div>`;
+  $('#n-nota').textContent = conToken()
+    ? 'Los avisos los envía GitHub al actualizar los datos (sobre las 15:00 y las 22:30, de lunes a viernes). Tus estrellas y avisos se guardan solos en GitHub.'
+    : 'Los avisos los envía GitHub al actualizar los datos (sobre las 15:00 y las 22:30, de lunes a viernes). Sin token, si cambias estas opciones o las acciones que sigues, copia el código otra vez y actualízalo en GitHub.';
+  const primera = !LS.get('sub_copiado', '');
+  const txt = `<div class="aviso"><b>${primera ? 'Último paso.' : conToken() ? 'Has vuelto a activar las notificaciones.' : 'Tus avisos han cambiado.'}</b> ${primera ? 'Copia el código y pégalo en GitHub como secreto PUSH_CONFIG.' : 'Copia el código otra vez y actualiza el secreto PUSH_CONFIG en GitHub.'}<button class="btn ac" data-copiar="1">Copiar código para GitHub</button></div>`;
   const pend = pendientePush();
   $('#n-copiar').parentElement.classList.toggle('oculto', pend);
   $('#n-pendiente').innerHTML = pend ? txt : '';
@@ -1111,6 +1196,7 @@ async function copiarCodigo() {
   let ok = false;
   try { await navigator.clipboard.writeText(c); ok = true; } catch (e) {}
   LS.set('firma_push', firmaPush());
+  LS.set('sub_copiado', endpointActual());
   pintarNotis();
   if (ok) { toast('Código copiado. Pégalo en GitHub como secreto PUSH_CONFIG'); $('#n-codigo').innerHTML = ''; }
   else {
@@ -1131,7 +1217,8 @@ function pintarAjustes() {
   $('#gotro').value = LS.get('gotro', '');
   $('#gotro-w').classList.toggle('oculto', LS.get('gmodelo', '') !== 'otro');
   $('#version').textContent = 'Versión ' + APP_VERSION;
-  pintarNotis();
+  $('#ghtoken').value = LS.get('ghtoken', '');
+  pintarNotis(); estadoSync();
   if (D) $('#info-datos').innerHTML = `<dt>Última actualización</dt><dd>${fechaAct()}</dd><dt>Acciones analizadas</dt><dd>${D.acciones.length}</dd>${D.fallos?.length ? `<dt>Sin datos hoy</dt><dd>${esc(D.fallos.join(', '))}</dd>` : ''}`;
 }
 
@@ -1181,6 +1268,12 @@ document.addEventListener('click', e => {
         .catch(er => toast(er.message)).finally(() => { t.disabled = false; });
     case 'n-probar': return probarLocal().catch(er => toast(er.message));
     case 'n-copiar': return copiarCodigo();
+    case 'gh-guardar': {
+      LS.set('ghtoken', $('#ghtoken').value.trim());
+      if (!conToken()) { estadoSync(); pintarNotis(); return toast('Token borrado'); }
+      t.disabled = true;
+      return sincronizar().then(() => toast('Token correcto: cambios guardados en GitHub')).catch(() => {}).finally(() => { t.disabled = false; pintarNotis(); });
+    }
     case 'recargar': SERIES = null; return cargar().then(() => toast('Datos recargados'));
     case 'borrar-ia': Object.keys(localStorage).filter(k => /^aqp_(inf_|graf_)/.test(k)).forEach(k => localStorage.removeItem(k)); return toast('Informes borrados');
   }
@@ -1194,7 +1287,7 @@ document.addEventListener('change', e => {
   if (t.id === 'gotro') LS.set('gotro', t.value.trim());
   if (['t50', 't200', 'tboll'].includes(t.id)) { LS.set(t.id, t.checked); dibujarGrafico(actual, LS.get('rango', 252)); }
   if (t.closest('.mod')) recalcModelos();
-  if (t.dataset.av) { LS.set('av_' + t.dataset.av, t.checked); pintarNotis(); }
+  if (t.dataset.av) { LS.set('av_' + t.dataset.av, t.checked); pintarNotis(); programarSync(); }
 });
 $('#q').addEventListener('input', e => { st.q = e.target.value; pintarLista(); });
 $('#chat-in').addEventListener('input', e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(120, e.target.scrollHeight) + 'px'; });
@@ -1209,6 +1302,10 @@ function abrirDesde(d) {
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => abrirDesde(e.data));
 
 /* ---------- arranque ---------- */
+setTimeout(() => {
+  const u = LS.get('sync_ok', null);
+  if (conToken() && (!u || u.firma !== JSON.stringify(datosSync()))) sincronizar().catch(() => {});
+}, 4000);
 aplicarTema();
 cargar();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
