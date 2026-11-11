@@ -85,7 +85,10 @@ h2.sec{font-size:19px;font-weight:700;margin:18px 0 10px}
 .fila{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;width:100%;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
 .fila:last-child{border-bottom:0}
 .fila:active{background:var(--sf2)}
-.logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--f-tit);font-weight:700;font-size:13px;color:#fff;letter-spacing:.02em}
+.logo{flex:0 0 auto;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--f-tit);font-weight:700;font-size:13px;color:#fff;letter-spacing:.02em;overflow:hidden}
+.logo.img{background:#fff;padding:5px;box-shadow:inset 0 0 0 1px rgba(19,33,58,.08)}
+.logo img{width:100%;height:100%;object-fit:contain;display:block}
+.logo.g{width:44px;height:44px}
 .fila .nom{min-width:0}
 .fila .nom b{font-weight:600;font-size:15.5px;margin-right:6px}
 .fila .nom .n{display:block;color:var(--mu);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -219,7 +222,8 @@ h2.sec{font-size:19px;font-weight:700;margin:18px 0 10px}
 .cart p{margin:6px 0 0;color:var(--mu);font-size:14px}
 .cart .meta{display:flex;gap:14px;font-size:13px;color:var(--mu);margin-top:10px;flex-wrap:wrap}
 .posis{margin-top:12px;border-top:1px solid var(--line)}
-.posi{display:grid;grid-template-columns:1fr auto auto;gap:12px;width:100%;text-align:left;padding:9px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.posi{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;width:100%;text-align:left;padding:9px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.logo.p{width:30px;height:30px;border-radius:9px;padding:3px}
 
 /* Chat */
 .chat{display:flex;flex-direction:column;gap:10px;margin-top:10px}
@@ -392,6 +396,7 @@ a{color:var(--ac)}
   <div class="f-cab">
     <div class="f-bar">
       <button class="ib" id="f-cerrar" aria-label="Volver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span id="f-logo"></span>
       <div class="t"><b id="f-sym"></b><span id="f-nom"></span></div>
       <button class="ib" id="f-fav" aria-label="Seguir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button>
     </div>
@@ -413,7 +418,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -444,6 +449,16 @@ const SAL_COL = ['#E5534B', '#EF8C64', '#F2B544', '#C8C85A', '#8CCD78', '#40BF7F
 function colSalud(v) { if (v == null) return 'var(--line)'; return SAL_COL[Math.max(0, Math.min(5, Math.floor((v - 1) / 4 * 6 * 0.999)))]; }
 function colSector(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 45% 42%)`; }
 function iniciales(sym) { return sym.replace(/\..*$/, '').replace('-', '').slice(0, 4); }
+function logoHTML(a, extra = '') {
+  const ini = iniciales(a.s), fs = ini.length > 3 ? 10.5 : 13;
+  const txt = `<span class="logo ${extra}" style="background:${colSector(a.sector)};font-size:${fs}px">${esc(ini)}</span>`;
+  if (!a.logo) return txt;
+  return `<span class="logo img ${extra}" data-ini="${esc(ini)}" data-bg="${colSector(a.sector)}" data-fs="${fs}"><img src="${esc(a.logo)}" alt="" loading="lazy" onerror="logoFallo(this)"></span>`;
+}
+function logoFallo(img) {
+  const sp = img.parentElement; if (!sp) return;
+  sp.classList.remove('img'); sp.style.background = sp.dataset.bg; sp.style.fontSize = sp.dataset.fs + 'px'; sp.textContent = sp.dataset.ini;
+}
 
 /* ---------- estado ---------- */
 let D = null, POR = {}, SERIES = null;
@@ -512,7 +527,7 @@ function pintarFiltros() {
 function filaHTML(a) {
   const fav = esFav(a.s) ? ' ★' : '';
   return `<button class="fila" data-s="${esc(a.s)}">
-    <span class="logo" style="background:${colSector(a.sector)};font-size:${iniciales(a.s).length > 3 ? 10.5 : 13}px">${esc(iniciales(a.s))}</span>
+    ${logoHTML(a)}
     <span class="nom"><b>${esc(a.s)}${fav}</b><span class="n">${esc(a.n)}</span>${etq(a.vr.etiqueta)}<span class="sal"><i style="background:${colSalud(a.salud.total)}"></i>${esc(a.salud.etiqueta)}</span></span>
     <span class="der">${nf(a.precio)}<span class="c ${cls(a.cambio)}">${pc(a.cambio, 2)}</span><span class="c ${cls(a.vr.pot)}">${a.vr.pot != null ? pc(a.vr.pot, 0) + ' pot.' : ''}</span></span>
   </button>`;
@@ -535,6 +550,7 @@ function pintarLista() {
 function abrirFicha(sym, tab = 'resumen') {
   const a = POR[sym]; if (!a) return;
   actual = a; subtab = tab;
+  $('#f-logo').innerHTML = logoHTML(a, 'g');
   $('#f-sym').textContent = a.s;
   $('#f-nom').textContent = a.n;
   $('#f-precio').textContent = din(a.precio, a.moneda);
@@ -1026,7 +1042,7 @@ function pintarCarteras() {
         <span class="r ${cls(x.r)}">${pc(x.r)}<span>este mes</span></span>
       </button>
       <div class="meta"><span>S&amp;P 500 este mes: <b class="${cls(x.sp)}">${pc(x.sp)}</b></span><span>Acumulado: <b class="${cls(x.acum)}">${pc(x.acum)}</b> (S&amp;P <span class="${cls(x.acum_sp)}">${pc(x.acum_sp)}</span>)</span><span>Desde ${new Date(x.inicio + 'T12:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span></div>
-      ${cartAbierta === x.id ? `<div class="posis">${x.pos.map(p => { const a = POR[p.s]; return `<button class="posi" data-s="${esc(p.s)}"><span><b>${esc(p.s)}</b> <span class="mu" style="font-size:13px">${esc(a ? a.n : '')}</span></span><span class="mu">${nf(p.p)}</span><span class="${cls(p.r)}">${pc(p.r)}</span></button>`; }).join('') || '<p class="mu">Ninguna acción cumple los requisitos este mes.</p>'}
+      ${cartAbierta === x.id ? `<div class="posis">${x.pos.map(p => { const a = POR[p.s]; return `<button class="posi" data-s="${esc(p.s)}"><span style="display:flex;align-items:center;gap:10px;min-width:0">${a ? logoHTML(a, 'p') : ''}<span style="min-width:0"><b>${esc(p.s)}</b> <span class="mu" style="font-size:13px">${esc(a ? a.n : '')}</span></span></span><span class="mu">${nf(p.p)}</span><span class="${cls(p.r)}">${pc(p.r)}</span></button>`; }).join('') || '<p class="mu">Ninguna acción cumple los requisitos este mes.</p>'}
         ${x.historial.length ? `<p class="nota">Meses anteriores: ${x.historial.map(hh => `${hh.mes}: <span class="${cls(hh.r)}">${pc(hh.r)}</span>`).join(' · ')}</p>` : ''}</div>`
       : `<button class="chip" data-cart="${x.id}" style="margin-top:10px">Ver las ${x.pos.length} acciones</button>`}
     </div>`).join('');
@@ -1048,7 +1064,7 @@ function pintarSeguimiento() {
   if (!snap) { snap = Object.fromEntries(D.acciones.map(a => [a.s, a.vr.etiqueta])); LS.set('snap', snap); }
   const favs = LS.get('favs', []);
   const camb = D.acciones.filter(a => snap[a.s] && snap[a.s] !== a.vr.etiqueta).sort((x, y) => favs.includes(y.s) - favs.includes(x.s));
-  $('#cambios').innerHTML = camb.length ? `<div class="lista">${camb.map(a => `<button class="fila" data-s="${esc(a.s)}"><span class="logo" style="background:${colSector(a.sector)};font-size:${iniciales(a.s).length > 3 ? 10.5 : 13}px">${esc(iniciales(a.s))}</span><span class="nom"><b>${esc(a.s)}${favs.includes(a.s) ? ' ★' : ''}</b><span class="n">${esc(snap[a.s])} → ${esc(a.vr.etiqueta)}</span></span><span class="der">${etq(a.vr.etiqueta)}</span></button>`).join('')}</div>
+  $('#cambios').innerHTML = camb.length ? `<div class="lista">${camb.map(a => `<button class="fila" data-s="${esc(a.s)}">${logoHTML(a)}<span class="nom"><b>${esc(a.s)}${favs.includes(a.s) ? ' ★' : ''}</b><span class="n">${esc(snap[a.s])} → ${esc(a.vr.etiqueta)}</span></span><span class="der">${etq(a.vr.etiqueta)}</span></button>`).join('')}</div>
     <div class="btns"><button class="btn sec" id="visto">Marcar como vistos</button></div>`
     : '<div class="card vacio"><b>Sin cambios desde tu última revisión</b>Aquí verás las acciones que pasen, por ejemplo, de Razonable a Ganga.</div>';
 }

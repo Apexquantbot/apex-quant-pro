@@ -39,6 +39,7 @@ F_SERIES = os.path.join(BASE, "series.json")
 F_CART = os.path.join(BASE, "carteras.json")
 F_TICK = os.path.join(BASE, "tickers.txt")
 F_AVISOS = os.path.join(BASE, "avisos.json")
+D_LOGOS = os.path.join(BASE, "logos")
 
 INDICES = [("^GSPC", "S&P 500"), ("^IXIC", "Nasdaq"), ("^DJI", "Dow Jones"), ("^IBEX", "IBEX 35")]
 
@@ -408,6 +409,7 @@ def preparar(sym, info, hist, inc, cf, bs, rec, cal, divs):
         "sector_en": info.get("sector") or "Otros",
         "industria": info.get("industry") or "",
         "pais": info.get("country") or "",
+        "web": info.get("website") or "",
         "moneda": info.get("currency") or "USD",
         "precio": precio, "cambio": cambio, "mcap": mcap,
         "beta": beta, "eps": eps, "eps_f": eps_f, "bvps": bvps,
@@ -787,6 +789,42 @@ def carteras(acciones, sp):
     return salida, (prev.get("mes") != mes and prev.get("mes") is not None)
 
 
+# ------------------------------------------------------------------- logos
+def nombre_logo(sym):
+    return sym.replace(".", "_").replace("^", "") + ".png"
+
+
+def descargar_logos(acciones):
+    """Descarga el logo de cada empresa una sola vez y lo guarda en la carpeta logos/."""
+    from urllib.parse import urlparse
+    os.makedirs(D_LOGOS, exist_ok=True)
+    cab = {"User-Agent": "Mozilla/5.0 (ApexQuantPro)"}
+    nuevos = 0
+    for a in acciones:
+        ruta = os.path.join(D_LOGOS, nombre_logo(a["s"]))
+        if os.path.exists(ruta) and os.path.getsize(ruta) > 0:
+            continue
+        dominio = urlparse(a.get("web") or "").netloc.replace("www.", "")
+        base = a["s"].split(".")[0]
+        urls = [f"https://financialmodelingprep.com/image-stock/{a['s']}.png"]
+        if base != a["s"]:
+            urls.append(f"https://financialmodelingprep.com/image-stock/{base}.png")
+        if dominio:
+            urls.append(f"https://www.google.com/s2/favicons?domain={dominio}&sz=128")
+        for u in urls:
+            try:
+                r = requests.get(u, headers=cab, timeout=15)
+                tipo = r.headers.get("content-type", "")
+                if r.status_code == 200 and tipo.startswith("image") and len(r.content) > 900:
+                    with open(ruta, "wb") as f:
+                        f.write(r.content)
+                    nuevos += 1
+                    break
+            except Exception:
+                pass
+    print(f"Logos: {nuevos} nuevos")
+
+
 # ------------------------------------------------------- notificaciones push
 def leer_config_push():
     """Lee el código que la app genera en Ajustes > Notificaciones (secreto PUSH_CONFIG)."""
@@ -972,12 +1010,17 @@ def main():
                 sp = float(c.iloc[-1])
 
     carts, mes_nuevo = carteras(acciones, sp)
+    try:
+        descargar_logos(acciones)
+    except Exception as e:
+        print("Logos:", e)
 
     # Salida
     out = []
     for a in acciones:
         out.append({
             "s": a["s"], "n": a["n"], "sector": a["sector"], "industria": a["industria"], "pais": a["pais"],
+            "logo": ("logos/" + nombre_logo(a["s"])) if os.path.exists(os.path.join(D_LOGOS, nombre_logo(a["s"]))) else None,
             "moneda": a["moneda"], "precio": rd(a["precio"], 4), "cambio": rd(a["cambio"]), "mcap": a["mcap"],
             "beta": rd(a["beta"], 2), "eps": rd(a["eps"]), "eps_f": rd(a["eps_f"]), "div": rd(a["div"]),
             "payout": rd(a["payout"]), "div_anos": a["div_anos"], "div_subidas": a["div_subidas"],

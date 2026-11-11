@@ -1,6 +1,6 @@
 // Apex Quant Pro - service worker
 // IMPORTANTE: cambia este nombre cada vez que subas una versión nueva de index.html
-const CACHE = 'apex-pro-v1.2.0';
+const CACHE = 'apex-pro-v1.3.0';
 const BASICOS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './badge-96.png'];
 
 self.addEventListener('install', e => {
