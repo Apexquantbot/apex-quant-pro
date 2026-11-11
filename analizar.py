@@ -817,8 +817,10 @@ def enviar_push(cfg, avisos):
         resto = len(avisos) - 5
         avisos = avisos[:5] + [{"titulo": "Apex Quant Pro", "texto": f"Y {resto} avisos más. Ábrela para verlos en Seguimiento.",
                                  "url": "./?v=seguimiento", "tag": "resumen"}]
-    web = cfg.get("web") or ""
-    contacto = web if web.startswith("https://") else "mailto:avisos@apexquantpro.app"
+    # El remitente tiene que ser solo el dominio (https://apexquantbot.github.io), sin rutas
+    import re
+    m = re.match(r"https://[^/]+", cfg.get("web") or "")
+    contacto = m.group(0) if m else "mailto:avisos@apexquantpro.app"
     for dev in cfg["_devs"]:
         try:
             d = dev["vapid_priv"]
