@@ -1,5 +1,7 @@
 {
- "favs": [],
+ "favs": [
+  "CABK.MC"
+ ],
  "avisos": {
   "ganga": true,
   "fav_etq": true,
@@ -8,5 +10,5 @@
   "fav_res": true,
   "carteras": true
  },
- "actualizado": "2026-11-11T23:37:54.106Z"
+ "actualizado": "2026-11-11T23:39:07.862Z"
 }
