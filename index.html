@@ -329,13 +329,10 @@ a{color:var(--ac)}
         <input id="gkey" type="password" placeholder="Pega aquí tu clave (empieza por AIza…)" autocomplete="off"></label>
       <label class="campo"><span>Modelo</span>
         <select id="gmodelo">
-          <option value="">Automático (prueba varios si uno está saturado)</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
-          <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+          <option value="">Automático (elige el mejor disponible)</option>
           <option value="otro">Otro…</option>
         </select></label>
-      <label class="campo oculto" id="gotro-w"><span>Nombre exacto del modelo</span><input id="gotro" placeholder="por ejemplo gemini-3-flash"></label>
+      <label class="campo oculto" id="gotro-w"><span>Nombre exacto del modelo</span><input id="gotro" placeholder="nombre exacto del modelo"></label>
       <div class="btns"><button class="btn" id="g-guardar">Guardar clave</button><button class="btn sec" id="g-probar">Probar</button></div>
       <p class="nota">Consigue la clave gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
     </div>
@@ -409,7 +406,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -814,17 +811,48 @@ function htmlInforme(a) {
 }
 
 /* ---------- IA (Gemini) ---------- */
-function modelosIA() {
+/* Busca en Google qué modelos "flash" gratuitos existen hoy, del más nuevo al más antiguo */
+function puntuarModelo(n) {
+  const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
+  let p = v * 100;
+  if (/lite/.test(n)) p -= 5;
+  if (/preview|exp/.test(n)) p -= 20;
+  if (/latest/.test(n)) p += 1;
+  return p;
+}
+async function modelosDisponibles(key, forzar = false) {
+  const c = LS.get('gmods', null);
+  if (!forzar && c && Date.now() - c.t < 864e5 && c.l.length) return c.l;
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`);
+    if (!r.ok) return c ? c.l : [];
+    const j = await r.json();
+    const l = (j.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace(/^models\//, ''))
+      .filter(n => /^gemini-.*flash/.test(n) && !/(image|tts|audio|live|embedding|vision|thinking)/.test(n))
+      .sort((a, b) => puntuarModelo(b) - puntuarModelo(a));
+    LS.set('gmods', { t: Date.now(), l });
+    return l;
+  } catch (e) { return c ? c.l : []; }
+}
+async function modelosIA(key) {
   const m = LS.get('gmodelo', ''), otro = LS.get('gotro', '');
   const l = [];
-  if (m === 'otro' && otro) l.push(otro); else if (m) l.push(m);
-  return [...new Set([...l, 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'])];
+  if (m === 'otro' && otro) l.push(otro);
+  else if (m && m !== 'otro') l.push(m);
+  const disp = await modelosDisponibles(key);
+  return [...new Set([...l, ...disp.slice(0, 5), 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash'])];
 }
 async function gemini(contents, sistema) {
   const key = LS.get('gkey', '');
   if (!key) throw new Error('Falta tu clave de Gemini. Añádela en Ajustes.');
-  let ultimo = '';
-  for (const m of modelosIA()) {
+  let ultimo = '', refrescado = false;
+  const cola = await modelosIA(key), probados = new Set();
+  while (cola.length) {
+    const m = cola.shift();
+    if (probados.has(m)) continue;
+    probados.add(m);
     try {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(key)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -833,13 +861,21 @@ async function gemini(contents, sistema) {
       const j = await r.json().catch(() => ({}));
       if (r.ok) {
         const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
-        if (t) return t;
+        if (t) { LS.set('gok', m); return t; }
         ultimo = 'La IA no ha devuelto respuesta.'; continue;
       }
       const msg = j.error?.message || ('Error ' + r.status);
       if (r.status === 400 && /API key|API_KEY/i.test(msg)) throw new Error('La clave de Gemini no es válida. Revísala en Ajustes.');
       if (r.status === 403) throw new Error('La clave de Gemini no tiene permiso. Crea otra en aistudio.google.com/apikey.');
       ultimo = msg;
+      // Si Google sugiere otro modelo, se prueba el siguiente
+      const sug = msg.match(/models\/(gemini-[\w.\-]+)/g);
+      if (sug) sug.map(x => x.replace('models/', '').replace(/\.$/, '')).filter(x => x !== m).forEach(x => cola.unshift(x));
+      // Si el modelo ya no existe, se actualiza la lista de modelos disponibles
+      if ((r.status === 404 || /no longer|not found|deprecated/i.test(msg)) && !refrescado) {
+        refrescado = true;
+        (await modelosDisponibles(key, true)).forEach(x => cola.push(x));
+      }
     } catch (e) {
       if (/clave|permiso/i.test(e.message)) throw e;
       ultimo = e.message;
@@ -1128,7 +1164,7 @@ document.addEventListener('click', e => {
     case 'g-probar': {
       LS.set('gkey', $('#gkey').value.trim()); t.disabled = true; toast('Probando la conexión…');
       gemini([{ role: 'user', parts: [{ text: 'Responde solo: Conexión correcta' }] }], 'Responde en español.')
-        .then(r => toast('✓ ' + r.slice(0, 60))).catch(er => toast(er.message)).finally(() => t.disabled = false);
+        .then(r => toast('✓ ' + r.slice(0, 50) + ' (modelo: ' + LS.get('gok', '') + ')')).catch(er => toast(er.message)).finally(() => t.disabled = false);
       return;
     }
     case 'n-activar':
