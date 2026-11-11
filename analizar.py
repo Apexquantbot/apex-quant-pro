@@ -149,6 +149,23 @@ def descargar(sym):
     return info, hist, inc, cf, bs, rec, cal, divs
 
 
+# ------------------------------------------------------------- tipo de cambio
+_FX = {}
+
+
+def tipo_cambio(de, a):
+    """Cuántas unidades de «a» vale 1 unidad de «de» (p. ej. TWD → USD)."""
+    clave = de + a
+    if clave not in _FX:
+        h = intentar(lambda: yf.Ticker(f"{de}{a}=X").history(period="5d"), pd.DataFrame(), n=2)
+        v = None
+        if isinstance(h, pd.DataFrame) and len(h):
+            v = num(h["Close"].dropna().iloc[-1])
+        _FX[clave] = v
+        print(f"   tipo de cambio {de}/{a}: {v}")
+    return _FX[clave]
+
+
 # ------------------------------------------------------------------ técnico
 def tecnico(closes):
     c = closes.dropna()
@@ -298,12 +315,24 @@ def preparar(sym, info, hist, inc, cf, bs, rec, cal, divs):
     cambio = div(ultimo, prev)
     cambio = cambio - 1 if cambio is not None else num(info.get("regularMarketChangePercent"))
 
-    acciones = num(info.get("sharesOutstanding")) or num(info.get("impliedSharesOutstanding"))
     mcap = num(info.get("marketCap"))
-    if not acciones and mcap:
+    if mcap:
+        # Acciones "equivalentes" al precio que cotiza (sirve también para ADR y acciones clase A/B)
         acciones = mcap / precio
-    if not mcap and acciones:
-        mcap = acciones * precio
+    else:
+        acciones = num(info.get("sharesOutstanding")) or num(info.get("impliedSharesOutstanding"))
+        mcap = acciones * precio if acciones else None
+
+    # Empresas que presentan cuentas en otra moneda (p. ej. TSMC en dólares taiwaneses)
+    moneda = info.get("currency") or "USD"
+    moneda_fin = info.get("financialCurrency") or moneda
+    fx = 1.0 if moneda_fin == moneda else tipo_cambio(moneda_fin, moneda)
+
+    def conv(v):
+        v = num(v)
+        if v is None:
+            return None
+        return v * fx if fx else None
 
     rev_h = fila(inc, "Total Revenue")
     eps_h = fila(inc, "Diluted EPS", "Basic EPS")
@@ -312,18 +341,28 @@ def preparar(sym, info, hist, inc, cf, bs, rec, cal, divs):
     ni_h = fila(inc, "Net Income", "Net Income Common Stockholders")
     sh_h = fila(bs, "Ordinary Shares Number", "Share Issued")
 
-    revenue = num(info.get("totalRevenue")) or el(rev_h, 0)
-    ebitda = num(info.get("ebitda"))
+    revenue = conv(num(info.get("totalRevenue")) or el(rev_h, 0))
+    ebitda = conv(info.get("ebitda"))
     fcf = num(info.get("freeCashflow"))
     if fcf is None:
         fcf = el(fcf_h, 0)
-    ocf = num(info.get("operatingCashflow")) or el(fila(cf, "Operating Cash Flow"), 0)
-    cash = num(info.get("totalCash")) or 0.0
-    deuda = num(info.get("totalDebt")) or 0.0
-    ni = num(info.get("netIncomeToCommon")) or el(ni_h, 0)
+    fcf = conv(fcf)
+    ocf = conv(num(info.get("operatingCashflow")) or el(fila(cf, "Operating Cash Flow"), 0))
+    cash = conv(info.get("totalCash")) or 0.0
+    deuda = conv(info.get("totalDebt")) or 0.0
+    ni = conv(num(info.get("netIncomeToCommon")) or el(ni_h, 0))
+    ebit_h = [conv(v) for v in ebit_h]
+    fcf_h = [conv(v) for v in fcf_h]
     eps = num(info.get("trailingEps"))
     eps_f = num(info.get("forwardEps"))
     bvps = num(info.get("bookValue"))
+    if moneda_fin != moneda:
+        # Beneficio y valor contable por acción recalculados en la moneda de cotización
+        t_eps, f_eps = eps, eps_f
+        eps = (ni / acciones) if ni is not None and acciones else None
+        eps_f = eps * (f_eps / t_eps) if eps and t_eps and f_eps and t_eps > 0 and f_eps > 0 else None
+        patrimonio = conv(el(fila(bs, "Stockholders Equity", "Common Stock Equity"), 0))
+        bvps = (patrimonio / acciones) if patrimonio and acciones else None
     div_ps = num(info.get("dividendRate")) or num(info.get("trailingAnnualDividendRate")) or 0.0
     payout = num(info.get("payoutRatio"))
     beta = num(info.get("beta"))
@@ -410,6 +449,17 @@ def preparar(sym, info, hist, inc, cf, bs, rec, cal, divs):
         "industria": info.get("industry") or "",
         "pais": info.get("country") or "",
         "web": info.get("website") or "",
+        "empresa": {
+            "desc": info.get("longBusinessSummary") or "",
+            "empleados": num(info.get("fullTimeEmployees")),
+            "ciudad": ", ".join([x for x in [info.get("city"), info.get("state")] if x]),
+            "web": info.get("website") or "",
+            "bolsa": info.get("fullExchangeName") or info.get("exchange") or "",
+            "desde": (dt.datetime.fromtimestamp(info["firstTradeDateEpochUtc"], dt.timezone.utc).year
+                      if num(info.get("firstTradeDateEpochUtc")) else None),
+            "moneda_cuentas": moneda_fin,
+            "directivos": [{"n": o.get("name"), "c": o.get("title")} for o in (info.get("companyOfficers") or [])[:4] if o.get("name")],
+        },
         "moneda": info.get("currency") or "USD",
         "precio": precio, "cambio": cambio, "mcap": mcap,
         "beta": beta, "eps": eps, "eps_f": eps_f, "bvps": bvps,
@@ -1020,6 +1070,7 @@ def main():
     for a in acciones:
         out.append({
             "s": a["s"], "n": a["n"], "sector": a["sector"], "industria": a["industria"], "pais": a["pais"],
+            "empresa": a["empresa"],
             "logo": ("logos/" + nombre_logo(a["s"])) if os.path.exists(os.path.join(D_LOGOS, nombre_logo(a["s"]))) else None,
             "moneda": a["moneda"], "precio": rd(a["precio"], 4), "cambio": rd(a["cambio"]), "mcap": a["mcap"],
             "beta": rd(a["beta"], 2), "eps": rd(a["eps"]), "eps_f": rd(a["eps_f"]), "div": rd(a["div"]),

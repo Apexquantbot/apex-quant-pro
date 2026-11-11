@@ -404,6 +404,7 @@ a{color:var(--ac)}
     <div class="mu" style="font-size:13px" id="f-sub"></div>
     <div class="subtabs" id="subtabs">
       <button class="st on" data-t="resumen">Resumen</button>
+      <button class="st" data-t="empresa">Empresa</button>
       <button class="st" data-t="salud">Salud</button>
       <button class="st" data-t="tecnico">Técnico</button>
       <button class="st" data-t="modelos">Modelos</button>
@@ -418,7 +419,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.4.0';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -573,6 +574,7 @@ function pintarSub() {
   Object.values(charts).forEach(c => c && c.destroy()); charts = {};
   const a = actual, c = $('#f-cuerpo');
   if (subtab === 'resumen') c.innerHTML = htmlResumen(a);
+  if (subtab === 'empresa') { c.innerHTML = htmlEmpresa(a); describirEmpresa(a); }
   if (subtab === 'salud') { c.innerHTML = htmlSalud(a); dibujarRadar(a); }
   if (subtab === 'tecnico') { c.innerHTML = htmlTecnico(a); dibujarGrafico(a, LS.get('rango', 252)); }
   if (subtab === 'modelos') { c.innerHTML = htmlModelos(a); recalcModelos(); }
@@ -651,6 +653,44 @@ function htmlResumen(a) {
       <dt>Máx. / mín. 52 semanas</dt><dd>${nf(a.tec.max52)} / ${nf(a.tec.min52)}</dd>
     </dl></div>
   <div class="btns"><button class="btn ac" id="preguntar">Preguntar al asistente por ${esc(a.s)}</button></div>`;
+}
+
+/* Empresa */
+function htmlEmpresa(a) {
+  const e = a.empresa || {}, d = LS.get('desc_' + a.s);
+  const web = e.web ? e.web.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+  const fila = (n, v) => v ? `<dt>${n}</dt><dd>${v}</dd>` : '';
+  const dirs = (e.directivos || []).map(x => `<li style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)"><b style="font-weight:600">${esc(x.n)}</b><span class="mu" style="text-align:right;font-size:13.5px">${esc(x.c || '')}</span></li>`).join('');
+  return `
+  <div class="card"><h3>Qué hace ${esc(a.n)}</h3>
+    <div id="emp-desc" class="ia">${d ? md(d) : e.desc ? '<div class="cargando"><span class="spin"></span>Preparando la descripción…</div>' : '<p class="mu" style="margin:0">No hay descripción disponible.</p>'}</div>
+    ${e.desc ? `<details style="margin-top:10px"><summary class="mu" style="font-size:13.5px;cursor:pointer">Ver la descripción original (inglés)</summary><p style="font-size:14px;line-height:1.55;margin:10px 0 0">${esc(e.desc)}</p></details>` : ''}
+  </div>
+  <div class="card"><h3>Datos de la empresa</h3>
+    <dl class="kv">
+      ${fila('Sector', esc(a.sector))}${fila('Industria', esc(a.industria))}
+      ${fila('País', esc(a.pais))}${fila('Sede', esc(e.ciudad))}
+      ${fila('Empleados', e.empleados ? nf(e.empleados, 0) : '')}
+      ${fila('Cotiza en', esc(e.bolsa))}${fila('En bolsa desde', e.desde || '')}
+      ${fila('Capitalización', big(a.mcap) + ' ' + (MON[a.moneda] || a.moneda))}
+      ${e.moneda_cuentas && e.moneda_cuentas !== a.moneda ? fila('Presenta sus cuentas en', esc(e.moneda_cuentas)) : ''}
+      ${fila('Web', web ? `<a href="${esc(e.web)}" target="_blank" rel="noopener">${esc(web)}</a>` : '')}
+    </dl>
+  </div>
+  ${dirs ? `<div class="card"><h3>Directivos</h3><ul style="list-style:none;margin:0;padding:0">${dirs}</ul></div>` : ''}`;
+}
+async function describirEmpresa(a) {
+  const e = a.empresa || {}, o = $('#emp-desc');
+  if (!o || !e.desc || LS.get('desc_' + a.s)) return;
+  if (!LS.get('gkey', '')) { o.innerHTML = `<p style="margin:0">${esc(e.desc)}</p><p class="nota">Añade tu clave de Gemini en Ajustes para verla resumida en español.</p>`; return; }
+  try {
+    const t = await gemini([{ role: 'user', parts: [{ text: `Resume en español de España, en 3 o 4 frases sencillas para alguien que no es experto, a qué se dedica ${a.n} (${a.s}), cómo gana dinero y qué la hace importante en su sector. No inventes datos ni cifras que no estén en el texto. No uses títulos ni listas.\n\nTexto original:\n${e.desc}` }] }],
+      'Eres un redactor financiero que explica empresas de forma clara y breve en español de España.');
+    LS.set('desc_' + a.s, t);
+    if (actual === a && subtab === 'empresa') o.innerHTML = md(t);
+  } catch (er) {
+    if (actual === a && subtab === 'empresa') o.innerHTML = `<p style="margin:0">${esc(e.desc)}</p><p class="nota dn">No se ha podido resumir en español: ${esc(er.message)}</p>`;
+  }
 }
 
 /* Salud */
@@ -913,7 +953,7 @@ async function gemini(contents, sistema) {
 const SISTEMA = `Eres el asistente financiero de Apex Quant Pro. Respondes siempre en español de España, claro y sin jerga innecesaria (explica los términos técnicos la primera vez). Usa los datos que te doy de la app (valor razonable, salud, ProTips, técnico, analistas) y cítalos con sus números. Si un dato no está, dilo; no inventes cifras. Sé equilibrado: muestra lo bueno y lo malo. No des órdenes de compra o venta personales: explica qué dicen los datos y qué riesgos hay. Formato: párrafos cortos, listas con guiones si ayudan, títulos con ## solo en informes largos.`;
 function ctxAccion(a) {
   return {
-    simbolo: a.s, nombre: a.n, sector: a.sector, industria: a.industria, moneda: a.moneda, precio: a.precio, cambio_hoy: a.cambio,
+    simbolo: a.s, nombre: a.n, sector: a.sector, industria: a.industria, descripcion: (a.empresa || {}).desc, empleados: (a.empresa || {}).empleados, moneda: a.moneda, precio: a.precio, cambio_hoy: a.cambio,
     capitalizacion: a.mcap, valor_razonable: a.vr.valor, potencial: a.vr.pot, etiqueta: a.vr.etiqueta, riesgo: a.vr.riesgo,
     modelos: a.vr.modelos.map(m => ({ modelo: m.n, valor: m.v, usado: m.ok })), supuestos: a.vr.supuestos,
     salud: { total: a.salud.total, etiqueta: a.salud.etiqueta, categorias: Object.fromEntries(Object.entries(a.salud.cat).map(([k, v]) => [k, v.v])) },
@@ -1291,7 +1331,7 @@ document.addEventListener('click', e => {
       return sincronizar().then(() => toast('Token correcto: cambios guardados en GitHub')).catch(() => {}).finally(() => { t.disabled = false; pintarNotis(); });
     }
     case 'recargar': SERIES = null; return cargar().then(() => toast('Datos recargados'));
-    case 'borrar-ia': Object.keys(localStorage).filter(k => /^aqp_(inf_|graf_)/.test(k)).forEach(k => localStorage.removeItem(k)); return toast('Informes borrados');
+    case 'borrar-ia': Object.keys(localStorage).filter(k => /^aqp_(inf_|graf_|desc_)/.test(k)).forEach(k => localStorage.removeItem(k)); return toast('Informes borrados');
   }
 });
 document.addEventListener('change', e => {
