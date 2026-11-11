@@ -334,6 +334,7 @@ a{color:var(--ac)}
         </select></label>
       <label class="campo oculto" id="gotro-w"><span>Nombre exacto del modelo</span><input id="gotro" placeholder="nombre exacto del modelo"></label>
       <div class="btns"><button class="btn" id="g-guardar">Guardar clave</button><button class="btn sec" id="g-probar">Probar</button></div>
+      <div class="estado" id="g-estado" style="margin-top:12px"></div>
       <p class="nota">Consigue la clave gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
     </div>
     <div class="card" id="c-notis">
@@ -406,7 +407,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -811,6 +812,10 @@ function htmlInforme(a) {
 }
 
 /* ---------- IA (Gemini) ---------- */
+function fetchT(url, op = {}, ms = 45000) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+  return fetch(url, { ...op, signal: c.signal }).catch(e => { throw new Error(e.name === 'AbortError' ? 'Google tarda demasiado en responder' : 'Sin conexión a internet'); }).finally(() => clearTimeout(t));
+}
 /* Busca en Google qué modelos "flash" gratuitos existen hoy, del más nuevo al más antiguo */
 function puntuarModelo(n) {
   const v = parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || 0);
@@ -824,7 +829,7 @@ async function modelosDisponibles(key, forzar = false) {
   const c = LS.get('gmods', null);
   if (!forzar && c && Date.now() - c.t < 864e5 && c.l.length) return c.l;
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`);
+    const r = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(key)}`, {}, 15000);
     if (!r.ok) return c ? c.l : [];
     const j = await r.json();
     const l = (j.models || [])
@@ -854,7 +859,7 @@ async function gemini(contents, sistema) {
     if (probados.has(m)) continue;
     probados.add(m);
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(key)}`, {
+      const r = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(key)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ systemInstruction: { parts: [{ text: sistema }] }, contents, generationConfig: { temperature: 0.4, maxOutputTokens: 4096 } })
       });
@@ -1162,9 +1167,12 @@ document.addEventListener('click', e => {
     case 'visto': LS.set('snap', Object.fromEntries(D.acciones.map(a => [a.s, a.vr.etiqueta]))); return pintarSeguimiento();
     case 'g-guardar': LS.set('gkey', $('#gkey').value.trim()); return toast('Clave guardada en este móvil');
     case 'g-probar': {
-      LS.set('gkey', $('#gkey').value.trim()); t.disabled = true; toast('Probando la conexión…');
+      LS.set('gkey', $('#gkey').value.trim()); t.disabled = true;
+      const ge = $('#g-estado'); ge.className = 'estado'; ge.innerHTML = '<span class="spin"></span><span>Probando la conexión… puede tardar hasta un minuto</span>';
       gemini([{ role: 'user', parts: [{ text: 'Responde solo: Conexión correcta' }] }], 'Responde en español.')
-        .then(r => toast('✓ ' + r.slice(0, 50) + ' (modelo: ' + LS.get('gok', '') + ')')).catch(er => toast(er.message)).finally(() => t.disabled = false);
+        .then(() => { ge.className = 'estado ok'; ge.innerHTML = `<i></i><span>Conectado correctamente · modelo ${esc(LS.get('gok', ''))}</span>`; })
+        .catch(er => { ge.className = 'estado'; ge.innerHTML = `<span class="dn">✗ ${esc(er.message)}</span>`; })
+        .finally(() => t.disabled = false);
       return;
     }
     case 'n-activar':
