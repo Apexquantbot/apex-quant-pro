@@ -1,0 +1,17 @@
+{
+  "name": "Apex Quant Pro",
+  "short_name": "Apex Pro",
+  "description": "Valor razonable, salud financiera, carteras y asistente con IA para acciones.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#13213A",
+  "theme_color": "#13213A",
+  "lang": "es",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
