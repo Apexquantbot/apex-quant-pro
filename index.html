@@ -62,12 +62,12 @@ main{padding:4px 16px calc(84px + env(safe-area-inset-bottom,0px));max-width:760
 h2.sec{font-size:19px;font-weight:700;margin:18px 0 10px}
 
 /* Navegación inferior */
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;display:grid;grid-template-columns:repeat(5,1fr);background:var(--sf);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
-.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--mu);padding:4px 0}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;display:grid;grid-template-columns:repeat(6,1fr);background:var(--sf);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--mu);padding:4px 0;min-width:0;white-space:nowrap}
 .tab svg{width:22px;height:22px}
 .tab.on{color:var(--tx)}
 .tab.on .ico{background:var(--ac-sf);color:var(--ac)}
-.ico{display:grid;place-items:center;width:52px;height:28px;border-radius:var(--r3);transition:background .2s}
+.ico{display:grid;place-items:center;width:46px;height:28px;border-radius:var(--r3);transition:background .2s}
 
 /* Buscador y filtros */
 .buscar{display:flex;align-items:center;gap:8px;background:var(--sf);border:1px solid var(--line);border-radius:var(--r2);padding:0 12px;margin-top:8px}
@@ -256,6 +256,17 @@ a{color:var(--ac)}
 .aviso{background:var(--ac-sf);border:1px solid var(--ac);color:var(--tx);border-radius:var(--r2);padding:12px 14px;font-size:14px;margin-top:12px}
 .aviso .btn{margin-top:10px;width:100%}
 .codigo{width:100%;min-height:110px;margin-top:10px;font-size:12px;border:1px solid var(--line);background:var(--sf2);border-radius:var(--r2);padding:10px;word-break:break-all}
+.noti-w{border-bottom:1px solid var(--line);padding:12px 14px}
+.noti-w:last-child{border-bottom:0}
+.noti{display:grid;grid-template-columns:1fr auto;gap:12px;color:var(--tx);text-decoration:none}
+.noti b{display:block;font-weight:600;font-size:15px;line-height:1.35}
+.nt-meta{display:block;font-size:12.5px;color:var(--mu);margin-bottom:4px}
+.nt-orig{display:block;font-size:12.5px;color:var(--mu);margin-top:3px;font-style:italic}
+.nt-res{display:block;font-size:13.5px;color:var(--mu);margin-top:6px;line-height:1.45}
+.noti img{width:84px;height:64px;object-fit:cover;border-radius:10px;background:var(--sf2)}
+.nt-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.nt-tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:var(--r3);padding:3px 9px 3px 4px;font-size:12.5px;font-weight:600;background:var(--sf2)}
+.nt-tag .logo{width:20px;height:20px;border-radius:6px;font-size:8px;padding:2px}
 #print-area{display:none}
 @media print{
   body>*:not(#print-area){display:none!important}
@@ -296,6 +307,19 @@ a{color:var(--ac)}
     </div>
     <div class="cuenta" id="cuenta"></div>
     <div class="lista" id="lista"></div>
+  </section>
+
+  <!-- NOTICIAS -->
+  <section class="vista" id="v-noticias">
+    <h2 class="sec">Noticias</h2>
+    <div class="chips" id="nt-filtros" style="margin-top:0"></div>
+    <div class="fila-ctl"><select class="sel" id="nt-accion" aria-label="Acción"></select></div>
+    <div class="card" id="nt-ia-card" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 style="margin:0">Resumen con IA</h3><button class="chip" id="nt-ia">Resumir estas noticias</button></div>
+      <div id="nt-ia-txt" class="ia"></div>
+    </div>
+    <div class="cuenta" id="nt-cuenta"></div>
+    <div class="lista" id="nt-lista"></div>
   </section>
 
   <!-- CARTERAS -->
@@ -385,6 +409,7 @@ a{color:var(--ac)}
 
 <nav class="tabs" id="tabs">
   <button class="tab on" data-v="mercado"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M6 16l4-5 3 3 5-7"/></svg></span>Mercado</button>
+  <button class="tab" data-v="noticias"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v8a2 2 0 0 1-2 2h-1M8 9h5M8 13h5M8 16h3"/></svg></span>Noticias</button>
   <button class="tab" data-v="carteras"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>Carteras</button>
   <button class="tab" data-v="asistente"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 10h.01M12 10h.01M15 10h.01" stroke-linecap="round" stroke-width="3"/></svg></span>Asistente</button>
   <button class="tab" data-v="seguimiento"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></span>Seguimiento</button>
@@ -407,6 +432,7 @@ a{color:var(--ac)}
       <button class="st" data-t="empresa">Empresa</button>
       <button class="st" data-t="salud">Salud</button>
       <button class="st" data-t="tecnico">Técnico</button>
+      <button class="st" data-t="noticias">Noticias</button>
       <button class="st" data-t="modelos">Modelos</button>
       <button class="st" data-t="informe">Informe IA</button>
     </div>
@@ -419,7 +445,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -578,6 +604,7 @@ function pintarSub() {
   if (subtab === 'salud') { c.innerHTML = htmlSalud(a); dibujarRadar(a); }
   if (subtab === 'tecnico') { c.innerHTML = htmlTecnico(a); dibujarGrafico(a, LS.get('rango', 252)); }
   if (subtab === 'modelos') { c.innerHTML = htmlModelos(a); recalcModelos(); }
+  if (subtab === 'noticias') { c.innerHTML = '<div class="cargando"><span class="spin"></span>Cargando noticias…</div>'; cargarNoticias().then(() => { if (actual === a && subtab === 'noticias') pintarNoticiasFicha(a); }); }
   if (subtab === 'informe') c.innerHTML = htmlInforme(a);
   if (subtab === 'resumen') requestAnimationFrame(() => setTimeout(() => {
     const m = $('#marcador'); if (m) m.style.left = m.dataset.x + '%';
@@ -1070,6 +1097,88 @@ async function enviarChat(txt) {
   window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
+/* ---------- NOTICIAS ---------- */
+let NOT = null, ntFiltro = 'todas', ntAccion = '', traduciendo = false;
+async function cargarNoticias(forzar = false) {
+  if (NOT && !forzar) return NOT;
+  try { const r = await fetchT('noticias.json?t=' + Date.now(), {}, 20000); NOT = r.ok ? await r.json() : { n: [] }; }
+  catch (e) { NOT = { n: [] }; }
+  return NOT;
+}
+function hace(iso) {
+  if (!iso) return '';
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 60) return 'hace ' + Math.max(1, m) + ' min';
+  if (m < 1440) return 'hace ' + Math.round(m / 60) + ' h';
+  const d = Math.round(m / 1440);
+  return d === 1 ? 'ayer' : 'hace ' + d + ' días';
+}
+const tradGet = () => LS.get('trad', {});
+function notiHTML(n) {
+  const tr = tradGet()[n.url];
+  const tags = (n.s || []).filter(x => POR[x]).slice(0, 4).map(x => `<button class="nt-tag" data-s="${esc(x)}">${logoHTML(POR[x])}${esc(x)}</button>`).join('');
+  return `<div class="noti-w">
+    <a class="noti" href="${esc(n.url)}" target="_blank" rel="noopener">
+      <span><span class="nt-meta">${esc(n.fuente || 'Noticia')} · ${hace(n.f)}</span>
+        <b>${esc(tr ? tr.t : n.t)}</b>${tr ? `<span class="nt-orig">${esc(n.t)}</span>` : ''}
+        ${(tr ? tr.r : n.r) ? `<span class="nt-res">${esc(tr ? tr.r : n.r)}</span>` : ''}</span>
+      ${n.img ? `<img src="${esc(n.img)}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+    </a>${tags ? `<div class="nt-tags">${tags}</div>` : ''}</div>`;
+}
+function listaNoticias() {
+  if (!NOT) return [];
+  const favs = LS.get('favs', []);
+  return NOT.n.filter(n => (ntFiltro !== 'mias' || (n.s || []).some(x => favs.includes(x))) && (!ntAccion || (n.s || []).includes(ntAccion)));
+}
+function pintarNoticias() {
+  if (!D || !NOT) return;
+  $('#nt-filtros').innerHTML = [['todas', 'Todas'], ['mias', 'De mis acciones ⭐']].map(([k, n]) => `<button class="chip ${ntFiltro === k ? 'on' : ''}" data-ntf="${k}">${n}</button>`).join('');
+  const syms = [...new Set(NOT.n.flatMap(n => n.s || []))].filter(x => POR[x]).sort();
+  $('#nt-accion').innerHTML = '<option value="">Todas las acciones</option>' + syms.map(x => `<option value="${esc(x)}" ${x === ntAccion ? 'selected' : ''}>${esc(x)} · ${esc(POR[x].n)}</option>`).join('');
+  const l = listaNoticias().slice(0, 80);
+  $('#nt-cuenta').textContent = l.length ? `${l.length} noticias${l.length === 80 ? ' (las más recientes)' : ''}` : '';
+  $('#nt-lista').innerHTML = l.length ? l.map(notiHTML).join('') : `<div class="vacio"><b>No hay noticias</b>${ntFiltro === 'mias' ? 'Marca acciones con la estrella para ver aquí sus noticias.' : 'Se descargan en cada actualización de datos.'}</div>`;
+  const r = LS.get('resnot_' + ntFiltro + ntAccion, null);
+  $('#nt-ia-txt').innerHTML = r && r.act === NOT.actualizado ? md(r.txt) : '';
+  traducir(l.slice(0, 40)).then(c => { if (c && $('#v-noticias').classList.contains('on')) pintarNoticias(); });
+}
+function pintarNoticiasFicha(a) {
+  const l = (NOT ? NOT.n : []).filter(n => (n.s || []).includes(a.s)).slice(0, 25);
+  $('#f-cuerpo').innerHTML = l.length ? `<div class="lista" style="margin-top:14px">${l.map(notiHTML).join('')}</div>` : '<div class="card vacio"><b>Sin noticias recientes</b>No hay noticias de esta empresa en los últimos 10 días.</div>';
+  traducir(l).then(c => { if (c && actual === a && subtab === 'noticias') pintarNoticiasFicha(a); });
+}
+async function traducir(lista) {
+  if (traduciendo || !LS.get('gkey', '')) return false;
+  const t = tradGet(), pend = lista.filter(n => !t[n.url]).slice(0, 30);
+  if (!pend.length) return false;
+  traduciendo = true;
+  try {
+    const entrada = pend.map(n => ({ t: n.t, r: n.r || '' }));
+    const r = await gemini([{ role: 'user', parts: [{ text: 'Traduce al español de España estos titulares y resúmenes de noticias financieras. Mantén nombres de empresas, cifras y símbolos bursátiles. Devuelve SOLO un array JSON con el mismo número de elementos y en el mismo orden, cada uno con la forma {"t": "titular", "r": "resumen"}. Sin texto adicional ni ```.\n\n' + JSON.stringify(entrada) }] }],
+      'Eres un traductor financiero profesional. Respondes solo con JSON válido.');
+    const arr = JSON.parse(r.replace(/```json|```/g, '').trim());
+    if (!Array.isArray(arr) || arr.length !== pend.length) throw new Error('respuesta incompleta');
+    const t2 = tradGet();
+    pend.forEach((n, i) => { if (arr[i] && arr[i].t) t2[n.url] = { t: String(arr[i].t), r: String(arr[i].r || '') }; });
+    const claves = Object.keys(t2); if (claves.length > 700) claves.slice(0, claves.length - 700).forEach(k => delete t2[k]);
+    LS.set('trad', t2);
+    traduciendo = false;
+    return true;
+  } catch (e) { traduciendo = false; return false; }
+}
+async function resumirNoticias() {
+  const b = $('#nt-ia'), o = $('#nt-ia-txt'), l = listaNoticias().slice(0, 40);
+  if (!l.length) return;
+  b.disabled = true; o.innerHTML = '<div class="cargando"><span class="spin"></span>Leyendo las noticias…</div>';
+  try {
+    const txt = l.map(n => `- [${(n.s || []).join(', ')}] ${n.t} (${n.fuente}, ${hace(n.f)})${n.r ? ': ' + n.r : ''}`).join('\n');
+    const r = await gemini([{ role: 'user', parts: [{ text: `Resume estas noticias financieras recientes para un inversor particular. Empieza con 2 o 3 frases sobre lo más importante. Después agrupa por empresa (símbolo en negrita) con una línea cada una, indicando si la noticia parece positiva, negativa o neutra para la acción. Máximo 12 empresas. No inventes nada que no esté en los titulares.\n\n${txt}` }] }], SISTEMA);
+    LS.set('resnot_' + ntFiltro + ntAccion, { act: NOT.actualizado, txt: r });
+    o.innerHTML = md(r);
+  } catch (e) { o.innerHTML = `<p class="dn" style="margin:0">${esc(e.message)}</p>`; }
+  b.disabled = false;
+}
+
 /* ---------- CARTERAS ---------- */
 let cartAbierta = null;
 function pintarCarteras() {
@@ -1283,6 +1392,7 @@ function irA(v) {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   document.querySelectorAll('.vista').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
   $('#entrada').classList.toggle('oculto', v !== 'asistente');
+  if (v === 'noticias') cargarNoticias().then(pintarNoticias);
   window.scrollTo(0, 0);
   if (v === 'asistente') window.scrollTo(0, document.body.scrollHeight);
 }
@@ -1298,6 +1408,7 @@ document.addEventListener('click', e => {
   if (t.dataset.cart) { cartAbierta = cartAbierta === t.dataset.cart ? null : t.dataset.cart; return pintarCarteras(); }
   if (t.dataset.sug) return enviarChat(t.dataset.sug);
   if (t.dataset.copiar) return copiarCodigo();
+  if (t.dataset.ntf) { ntFiltro = t.dataset.ntf; return pintarNoticias(); }
   switch (t.id) {
     case 'f-cerrar': return history.back();
     case 'f-fav': return alternarFav();
@@ -1324,20 +1435,22 @@ document.addEventListener('click', e => {
         .catch(er => toast(er.message)).finally(() => { t.disabled = false; });
     case 'n-probar': return probarLocal().catch(er => toast(er.message));
     case 'n-copiar': return copiarCodigo();
+    case 'nt-ia': return resumirNoticias();
     case 'gh-guardar': {
       LS.set('ghtoken', $('#ghtoken').value.trim());
       if (!conToken()) { estadoSync(); pintarNotis(); return toast('Token borrado'); }
       t.disabled = true;
       return sincronizar().then(() => toast('Token correcto: cambios guardados en GitHub')).catch(() => {}).finally(() => { t.disabled = false; pintarNotis(); });
     }
-    case 'recargar': SERIES = null; return cargar().then(() => toast('Datos recargados'));
-    case 'borrar-ia': Object.keys(localStorage).filter(k => /^aqp_(inf_|graf_|desc_)/.test(k)).forEach(k => localStorage.removeItem(k)); return toast('Informes borrados');
+    case 'recargar': SERIES = null; NOT = null; return cargar().then(() => toast('Datos recargados'));
+    case 'borrar-ia': Object.keys(localStorage).filter(k => /^aqp_(inf_|graf_|desc_|resnot_|trad$)/.test(k)).forEach(k => localStorage.removeItem(k)); return toast('Informes borrados');
   }
 });
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'sector') { st.sector = t.value; pintarLista(); }
   if (t.id === 'orden') { st.orden = t.value; pintarLista(); }
+  if (t.id === 'nt-accion') { ntAccion = t.value; pintarNoticias(); }
   if (t.id === 'tema') { LS.set('tema', t.value); aplicarTema(); if (subtab && $('#ficha').classList.contains('on')) pintarSub(); }
   if (t.id === 'gmodelo') { LS.set('gmodelo', t.value); $('#gotro-w').classList.toggle('oculto', t.value !== 'otro'); }
   if (t.id === 'gotro') LS.set('gotro', t.value.trim());

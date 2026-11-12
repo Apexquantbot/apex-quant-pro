@@ -39,6 +39,7 @@ F_SERIES = os.path.join(BASE, "series.json")
 F_CART = os.path.join(BASE, "carteras.json")
 F_TICK = os.path.join(BASE, "tickers.txt")
 F_AVISOS = os.path.join(BASE, "avisos.json")
+F_NOTICIAS = os.path.join(BASE, "noticias.json")
 D_LOGOS = os.path.join(BASE, "logos")
 
 INDICES = [("^GSPC", "S&P 500"), ("^IXIC", "Nasdaq"), ("^DJI", "Dow Jones"), ("^IBEX", "IBEX 35")]
@@ -136,6 +137,9 @@ def div(a, b):
 
 
 # ------------------------------------------------------------------ descarga
+NOTICIAS_RAW = {}
+
+
 def descargar(sym):
     t = yf.Ticker(sym)
     info = intentar(lambda: t.info, {}) or {}
@@ -146,6 +150,10 @@ def descargar(sym):
     rec = intentar(lambda: t.recommendations, pd.DataFrame(), n=2)
     cal = intentar(lambda: t.calendar, {}, n=2)
     divs = intentar(lambda: t.dividends, pd.Series(dtype=float), n=2)
+    try:
+        NOTICIAS_RAW[sym] = t.news or []
+    except Exception:
+        NOTICIAS_RAW[sym] = []
     return info, hist, inc, cf, bs, rec, cal, divs
 
 
@@ -164,6 +172,51 @@ def tipo_cambio(de, a):
         _FX[clave] = v
         print(f"   tipo de cambio {de}/{a}: {v}")
     return _FX[clave]
+
+
+# ---------------------------------------------------------------- noticias
+def _fecha_iso(v):
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return dt.datetime.fromtimestamp(v, dt.timezone.utc).isoformat(timespec="minutes")
+    try:
+        return pd.Timestamp(v).tz_convert("UTC").isoformat(timespec="minutes") if pd.Timestamp(v).tzinfo else pd.Timestamp(v).tz_localize("UTC").isoformat(timespec="minutes")
+    except Exception:
+        return None
+
+
+def leer_noticias(sym, raw):
+    """Convierte las noticias de Yahoo Finance (formato antiguo o nuevo) a un formato sencillo."""
+    out = []
+    for it in raw or []:
+        if not isinstance(it, dict):
+            continue
+        c = it.get("content") if isinstance(it.get("content"), dict) else it
+        tipo = c.get("contentType") or c.get("type") or "STORY"
+        if str(tipo).upper() not in ("STORY", "ARTICLE", "VIDEO"):
+            continue
+        titulo = (c.get("title") or "").strip()
+        url = ((c.get("canonicalUrl") or {}).get("url") or (c.get("clickThroughUrl") or {}).get("url")
+               or c.get("link") or "")
+        if not titulo or not url:
+            continue
+        fecha = _fecha_iso(c.get("pubDate") or c.get("displayTime") or c.get("providerPublishTime"))
+        fuente = (c.get("provider") or {}).get("displayName") if isinstance(c.get("provider"), dict) else c.get("publisher")
+        img = None
+        th = c.get("thumbnail") or {}
+        res = th.get("resolutions") or []
+        if res:
+            res = sorted([r for r in res if r.get("url")], key=lambda r: abs((r.get("width") or 0) - 240))
+            img = res[0]["url"] if res else None
+        if not img and th.get("originalUrl"):
+            img = th["originalUrl"]
+        resumen = (c.get("summary") or c.get("description") or "").strip()
+        if len(resumen) > 280:
+            resumen = resumen[:277].rsplit(" ", 1)[0] + "…"
+        rel = [sym] + [x for x in (c.get("relatedTickers") or []) if isinstance(x, str)]
+        out.append({"t": titulo, "r": resumen, "f": fecha, "fuente": fuente or "", "url": url, "img": img, "s": rel})
+    return out[:8]
 
 
 # ------------------------------------------------------------------ técnico
@@ -1088,6 +1141,25 @@ def main():
         json.dump(datos, f, ensure_ascii=False, separators=(",", ":"))
     with open(F_SERIES, "w", encoding="utf-8") as f:
         json.dump(series, f, separators=(",", ":"))
+
+    # Noticias de todas las acciones, sin repetir y de los últimos 10 días
+    validos = {a["s"] for a in out}
+    por_url = {}
+    limite = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=10)).isoformat()
+    for sym, raw in NOTICIAS_RAW.items():
+        for n in leer_noticias(sym, raw):
+            if n["f"] and n["f"] < limite:
+                continue
+            n["s"] = [x for x in dict.fromkeys(n["s"]) if x in validos]
+            clave = n["url"].split("?")[0]
+            if clave in por_url:
+                por_url[clave]["s"] = list(dict.fromkeys(por_url[clave]["s"] + n["s"]))
+            else:
+                por_url[clave] = n
+    noticias = sorted(por_url.values(), key=lambda n: n["f"] or "", reverse=True)[:500]
+    with open(F_NOTICIAS, "w", encoding="utf-8") as f:
+        json.dump({"actualizado": datos["actualizado"], "n": noticias}, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"Noticias: {len(noticias)}")
     print(f"Listo: {len(out)} acciones, {len(fallos)} fallos: {fallos}")
 
     # Notificaciones
