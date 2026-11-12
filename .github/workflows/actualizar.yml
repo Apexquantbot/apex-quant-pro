@@ -39,6 +39,7 @@ jobs:
       - name: Analizar acciones
         env:
           PUSH_CONFIG: ${{ secrets.PUSH_CONFIG }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           PRUEBA: ${{ inputs.prueba }}
         run: python analizar.py
 
