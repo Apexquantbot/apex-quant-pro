@@ -1,12 +1,8 @@
 name: Actualizar datos
 
 on:
-  schedule:
-    # Minutos «raros» a propósito: a las horas en punto GitHub va saturado y retrasa o se salta tareas
-    - cron: '7 9 * * 1-5'     # 10:07 en España (bolsa europea abierta)
-    - cron: '7 14 * * 1-5'    # 15:07 en España (antes de abrir Wall Street)
-    - cron: '37 17 * * 1-5'   # 18:37 en España (mitad de la sesión americana)
-    - cron: '37 21 * * 1-5'   # 22:37 en España (tras el cierre de Wall Street)
+  # Las horas las marca cron-job.org (10:37, 15:37, 18:37 y 22:37, de lunes a viernes),
+  # porque las tareas programadas de GitHub no se estaban lanzando.
   workflow_dispatch:
     inputs:
       prueba:
