@@ -242,14 +242,22 @@ def gemini_modelos(key):
         return ["gemini-flash-latest", "gemini-flash-lite-latest"]
 
 
+AGOTADOS = set()
+
+
 def gemini_json(key, modelos, prompt):
     cuerpo = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
               "generationConfig": {"temperature": 0.2, "maxOutputTokens": 8192, "responseMimeType": "application/json"}}
     for m in modelos:
+        if m in AGOTADOS:
+            continue
         try:
             r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
-                              json=cuerpo, timeout=90)
+                              json=cuerpo, timeout=45)
             if r.status_code != 200:
+                print(f"   Gemini {m}: error {r.status_code}")
+                if r.status_code in (400, 404, 429):
+                    AGOTADOS.add(m)   # no existe o se ha agotado el límite gratuito: no se vuelve a probar
                 continue
             partes = r.json().get("candidates", [{}])[0].get("content", {}).get("parts", [])
             txt = "".join(p.get("text", "") for p in partes).strip().strip("`")
@@ -276,7 +284,15 @@ def traducir_noticias(noticias, anteriores):
         return
     modelos = gemini_modelos(key)
     ok = 0
+    inicio = time.time()
     for i in range(0, len(pend), 12):
+        if time.time() - inicio > 240:
+            print("Traducción: se acaba el tiempo de esta ejecución; el resto se traduce en la siguiente")
+            break
+        if all(m in AGOTADOS for m in modelos):
+            print("Traducción: Gemini no responde o se ha agotado el límite gratuito; se sigue en la siguiente ejecución")
+            break
+        print(f"   traduciendo noticias {i + 1}-{min(i + 12, len(pend))} de {len(pend)}…")
         lote = pend[i:i + 12]
         entrada = [{"t": n["t"], "r": n.get("r", "")} for n in lote]
         res = gemini_json(key, modelos,
