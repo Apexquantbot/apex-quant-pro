@@ -445,7 +445,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -938,7 +938,7 @@ async function modelosIA(key) {
   const disp = await modelosDisponibles(key);
   return [...new Set([...l, ...disp.slice(0, 5), 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash'])];
 }
-async function gemini(contents, sistema) {
+async function gemini(contents, sistema, extra = {}) {
   const key = LS.get('gkey', '');
   if (!key) throw new Error('Falta tu clave de Gemini. Añádela en Ajustes.');
   let ultimo = '', refrescado = false;
@@ -950,7 +950,7 @@ async function gemini(contents, sistema) {
     try {
       const r = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(key)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: sistema }] }, contents, generationConfig: { temperature: 0.4, maxOutputTokens: 4096 } })
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: sistema }] }, contents, generationConfig: { temperature: 0.4, maxOutputTokens: 8192, ...extra } })
       });
       const j = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -1115,7 +1115,7 @@ function hace(iso) {
 }
 const tradGet = () => LS.get('trad', {});
 function notiHTML(n) {
-  const tr = tradGet()[n.url];
+  const tr = n.te ? { t: n.te, r: n.re || '' } : tradGet()[n.url];
   const tags = (n.s || []).filter(x => POR[x]).slice(0, 4).map(x => `<button class="nt-tag" data-s="${esc(x)}">${logoHTML(POR[x])}${esc(x)}</button>`).join('');
   return `<div class="noti-w">
     <a class="noti" href="${esc(n.url)}" target="_blank" rel="noopener">
@@ -1149,13 +1149,13 @@ function pintarNoticiasFicha(a) {
 }
 async function traducir(lista) {
   if (traduciendo || !LS.get('gkey', '')) return false;
-  const t = tradGet(), pend = lista.filter(n => !t[n.url]).slice(0, 30);
+  const t = tradGet(), pend = lista.filter(n => !n.te && !t[n.url]).slice(0, 10);
   if (!pend.length) return false;
   traduciendo = true;
   try {
     const entrada = pend.map(n => ({ t: n.t, r: n.r || '' }));
     const r = await gemini([{ role: 'user', parts: [{ text: 'Traduce al español de España estos titulares y resúmenes de noticias financieras. Mantén nombres de empresas, cifras y símbolos bursátiles. Devuelve SOLO un array JSON con el mismo número de elementos y en el mismo orden, cada uno con la forma {"t": "titular", "r": "resumen"}. Sin texto adicional ni ```.\n\n' + JSON.stringify(entrada) }] }],
-      'Eres un traductor financiero profesional. Respondes solo con JSON válido.');
+      'Eres un traductor financiero profesional. Respondes solo con JSON válido.', { temperature: 0.2, responseMimeType: 'application/json' });
     const arr = JSON.parse(r.replace(/```json|```/g, '').trim());
     if (!Array.isArray(arr) || arr.length !== pend.length) throw new Error('respuesta incompleta');
     const t2 = tradGet();

@@ -219,6 +219,80 @@ def leer_noticias(sym, raw):
     return out[:8]
 
 
+# ------------------------------------------------- traducción (Gemini, opcional)
+def gemini_modelos(key):
+    try:
+        r = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key={key}", timeout=20)
+        mods = []
+        for m in r.json().get("models", []):
+            n = m.get("name", "").replace("models/", "")
+            if "generateContent" in (m.get("supportedGenerationMethods") or []) and n.startswith("gemini-") and "flash" in n \
+                    and not any(x in n for x in ("image", "tts", "audio", "live", "embedding", "vision", "thinking")):
+                mods.append(n)
+
+        def punt(n):
+            import re
+            v = re.search(r"gemini-(\d+(?:\.\d+)?)", n)
+            p = float(v.group(1)) * 100 if v else 0
+            return p - (5 if "lite" in n else 0) - (20 if ("preview" in n or "exp" in n) else 0)
+        mods.sort(key=punt, reverse=True)
+        return mods[:4] + ["gemini-flash-latest", "gemini-flash-lite-latest"]
+    except Exception as e:
+        print("Gemini: no se han podido listar los modelos:", e)
+        return ["gemini-flash-latest", "gemini-flash-lite-latest"]
+
+
+def gemini_json(key, modelos, prompt):
+    cuerpo = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+              "generationConfig": {"temperature": 0.2, "maxOutputTokens": 8192, "responseMimeType": "application/json"}}
+    for m in modelos:
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
+                              json=cuerpo, timeout=90)
+            if r.status_code != 200:
+                continue
+            partes = r.json().get("candidates", [{}])[0].get("content", {}).get("parts", [])
+            txt = "".join(p.get("text", "") for p in partes).strip().strip("`")
+            if txt.startswith("json"):
+                txt = txt[4:]
+            return json.loads(txt)
+        except Exception:
+            continue
+    return None
+
+
+def traducir_noticias(noticias, anteriores):
+    """Pone en español los titulares y resúmenes. Reutiliza las traducciones ya hechas."""
+    hechas = {n["url"]: n for n in anteriores if n.get("te")}
+    for n in noticias:
+        v = hechas.get(n["url"])
+        if v:
+            n["te"], n["re"] = v.get("te"), v.get("re", "")
+    key = os.environ.get("GEMINI_KEY", "").strip()
+    pend = [n for n in noticias if not n.get("te")][:240]
+    if not key or not pend:
+        if not key:
+            print("Traducción: no hay secreto GEMINI_KEY, las noticias quedan en inglés")
+        return
+    modelos = gemini_modelos(key)
+    ok = 0
+    for i in range(0, len(pend), 12):
+        lote = pend[i:i + 12]
+        entrada = [{"t": n["t"], "r": n.get("r", "")} for n in lote]
+        res = gemini_json(key, modelos,
+                          "Traduce al español de España estos titulares y resúmenes de noticias financieras. "
+                          "Mantén nombres de empresas, cifras y símbolos bursátiles. Devuelve SOLO un array JSON con el mismo "
+                          "número de elementos y en el mismo orden, cada uno con la forma {\"t\": \"titular\", \"r\": \"resumen\"}.\n\n"
+                          + json.dumps(entrada, ensure_ascii=False))
+        if isinstance(res, list) and len(res) == len(lote):
+            for n, x in zip(lote, res):
+                if isinstance(x, dict) and x.get("t"):
+                    n["te"], n["re"] = str(x["t"]), str(x.get("r") or "")
+                    ok += 1
+        time.sleep(1)
+    print(f"Traducción: {ok} noticias nuevas traducidas")
+
+
 # ------------------------------------------------------------------ técnico
 def tecnico(closes):
     c = closes.dropna()
@@ -1157,6 +1231,15 @@ def main():
             else:
                 por_url[clave] = n
     noticias = sorted(por_url.values(), key=lambda n: n["f"] or "", reverse=True)[:500]
+    try:
+        with open(F_NOTICIAS, encoding="utf-8") as f:
+            anteriores = json.load(f).get("n", [])
+    except Exception:
+        anteriores = []
+    try:
+        traducir_noticias(noticias, anteriores)
+    except Exception as e:
+        print("Traducción:", e)
     with open(F_NOTICIAS, "w", encoding="utf-8") as f:
         json.dump({"actualizado": datos["actualizado"], "n": noticias}, f, ensure_ascii=False, separators=(",", ":"))
     print(f"Noticias: {len(noticias)}")
