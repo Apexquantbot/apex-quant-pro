@@ -243,12 +243,15 @@ def gemini_modelos(key):
 
 
 AGOTADOS = set()
+ULTIMO_OK = []
 
 
 def gemini_json(key, modelos, prompt):
     cuerpo = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
               "generationConfig": {"temperature": 0.2, "maxOutputTokens": 8192, "responseMimeType": "application/json"}}
-    for m in modelos:
+    # Primero el último modelo que funcionó, para no perder tiempo con los saturados
+    orden = ULTIMO_OK[-1:] + [m for m in modelos if m not in ULTIMO_OK[-1:]]
+    for m in orden:
         if m in AGOTADOS:
             continue
         try:
@@ -263,7 +266,9 @@ def gemini_json(key, modelos, prompt):
             txt = "".join(p.get("text", "") for p in partes).strip().strip("`")
             if txt.startswith("json"):
                 txt = txt[4:]
-            return json.loads(txt)
+            res = json.loads(txt)
+            ULTIMO_OK.append(m)
+            return res
         except Exception:
             continue
     return None
@@ -283,29 +288,44 @@ def traducir_noticias(noticias, anteriores):
             print("Traducción: no hay secreto GEMINI_KEY, las noticias quedan en inglés")
         return
     modelos = gemini_modelos(key)
-    ok = 0
     inicio = time.time()
-    for i in range(0, len(pend), 12):
-        if time.time() - inicio > 240:
-            print("Traducción: se acaba el tiempo de esta ejecución; el resto se traduce en la siguiente")
-            break
-        if all(m in AGOTADOS for m in modelos):
-            print("Traducción: Gemini no responde o se ha agotado el límite gratuito; se sigue en la siguiente ejecución")
-            break
-        print(f"   traduciendo noticias {i + 1}-{min(i + 12, len(pend))} de {len(pend)}…")
-        lote = pend[i:i + 12]
+
+    def traducir_lote(lote):
         entrada = [{"t": n["t"], "r": n.get("r", "")} for n in lote]
         res = gemini_json(key, modelos,
                           "Traduce al español de España estos titulares y resúmenes de noticias financieras. "
                           "Mantén nombres de empresas, cifras y símbolos bursátiles. Devuelve SOLO un array JSON con el mismo "
                           "número de elementos y en el mismo orden, cada uno con la forma {\"t\": \"titular\", \"r\": \"resumen\"}.\n\n"
                           + json.dumps(entrada, ensure_ascii=False))
+        hechas_lote = 0
         if isinstance(res, list) and len(res) == len(lote):
             for n, x in zip(lote, res):
                 if isinstance(x, dict) and x.get("t"):
                     n["te"], n["re"] = str(x["t"]), str(x.get("r") or "")
-                    ok += 1
-        time.sleep(1)
+                    hechas_lote += 1
+        return hechas_lote
+
+    TAM = 20
+    lotes = [pend[i:i + TAM] for i in range(0, len(pend), TAM)]
+    # Hasta 2 vueltas: en la segunda se reintentan los grupos que fallaron (normalmente los más recientes)
+    for vuelta in (1, 2):
+        fallidos = []
+        for k, lote in enumerate(lotes):
+            if time.time() - inicio > (240 if vuelta == 1 else 300):
+                print("Traducción: se acaba el tiempo de esta ejecución; el resto se traduce en la siguiente")
+                break
+            if all(m in AGOTADOS for m in modelos):
+                print("Traducción: Gemini no responde o se ha agotado el límite gratuito; se sigue en la siguiente ejecución")
+                break
+            print(f"   {'reintentando' if vuelta == 2 else 'traduciendo'} grupo {k + 1} de {len(lotes)} ({len(lote)} noticias)…")
+            if traducir_lote(lote) == 0:
+                fallidos.append(lote)
+            time.sleep(1)
+        if not fallidos:
+            break
+        lotes = fallidos
+        time.sleep(5)
+    ok = sum(1 for n in pend if n.get("te"))
     print(f"Traducción: {ok} noticias nuevas traducidas")
 
 
