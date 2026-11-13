@@ -296,6 +296,9 @@ a{color:var(--ac)}
     <div class="chips" id="filtros"></div>
     <div class="fila-ctl">
       <select class="sel" id="sector" aria-label="Sector"></select>
+      <select class="sel" id="tema" aria-label="Temática"></select>
+    </div>
+    <div class="fila-ctl">
       <select class="sel" id="orden" aria-label="Ordenar">
         <option value="potencial">Mayor potencial</option>
         <option value="salud">Mejor salud</option>
@@ -445,7 +448,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.6.0';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
@@ -489,7 +492,7 @@ function logoFallo(img) {
 
 /* ---------- estado ---------- */
 let D = null, POR = {}, SERIES = null;
-const st = { filtro: 'todas', sector: '', orden: 'potencial', q: '' };
+const st = { filtro: 'todas', sector: '', tema: '', orden: 'potencial', q: '' };
 let actual = null, subtab = 'resumen', charts = {};
 
 /* ---------- tema ---------- */
@@ -533,6 +536,9 @@ function pintarTodo() {
   const sectores = [...new Set(D.acciones.map(a => a.sector))].sort((a, b) => a.localeCompare(b, 'es'));
   $('#sector').innerHTML = '<option value="">Todos los sectores</option>' + sectores.map(s => `<option>${esc(s)}</option>`).join('');
   $('#sector').value = st.sector;
+  const temas = [...new Set(D.acciones.flatMap(a => a.temas || []))].sort((a, b) => a.localeCompare(b, 'es'));
+  $('#tema').innerHTML = '<option value="">Todas las temáticas</option>' + temas.map(t => `<option>${esc(t)}</option>`).join('');
+  $('#tema').value = st.tema;
   pintarFiltros(); pintarLista(); pintarCarteras(); pintarSeguimiento(); pintarAjustes(); pintarChat();
 }
 
@@ -563,7 +569,7 @@ function pintarLista() {
   if (!D) return;
   const f = FILTROS.find(x => x[0] === st.filtro)[2];
   const q = st.q.trim().toLowerCase();
-  let l = D.acciones.filter(a => f(a) && (!st.sector || a.sector === st.sector) && (!q || a.s.toLowerCase().includes(q) || a.n.toLowerCase().includes(q)));
+  let l = D.acciones.filter(a => f(a) && (!st.sector || a.sector === st.sector) && (!st.tema || (a.temas || []).includes(st.tema)) && (!q || a.s.toLowerCase().includes(q) || a.n.toLowerCase().includes(q)));
   const k = {
     potencial: a => a.vr.pot ?? -9, salud: a => a.salud.total ?? -9, impulso: a => a.salud.cat.impulso?.v ?? -9,
     dia: a => a.cambio ?? -9, mcap: a => a.mcap ?? 0
@@ -696,6 +702,7 @@ function htmlEmpresa(a) {
   <div class="card"><h3>Datos de la empresa</h3>
     <dl class="kv">
       ${fila('Sector', esc(a.sector))}${fila('Industria', esc(a.industria))}
+      ${fila('Temáticas', (a.temas || []).map(t => `<button class="chip" data-tema="${esc(t)}" style="padding:3px 10px;font-size:12.5px;margin:2px 0 2px 4px">${esc(t)}</button>`).join(''))}
       ${fila('País', esc(a.pais))}${fila('Sede', esc(e.ciudad))}
       ${fila('Empleados', e.empleados ? nf(e.empleados, 0) : '')}
       ${fila('Cotiza en', esc(e.bolsa))}${fila('En bolsa desde', e.desde || '')}
@@ -980,7 +987,7 @@ async function gemini(contents, sistema, extra = {}) {
 const SISTEMA = `Eres el asistente financiero de Apex Quant Pro. Respondes siempre en español de España, claro y sin jerga innecesaria (explica los términos técnicos la primera vez). Usa los datos que te doy de la app (valor razonable, salud, ProTips, técnico, analistas) y cítalos con sus números. Si un dato no está, dilo; no inventes cifras. Sé equilibrado: muestra lo bueno y lo malo. No des órdenes de compra o venta personales: explica qué dicen los datos y qué riesgos hay. Formato: párrafos cortos, listas con guiones si ayudan, títulos con ## solo en informes largos.`;
 function ctxAccion(a) {
   return {
-    simbolo: a.s, nombre: a.n, sector: a.sector, industria: a.industria, descripcion: (a.empresa || {}).desc, empleados: (a.empresa || {}).empleados, moneda: a.moneda, precio: a.precio, cambio_hoy: a.cambio,
+    simbolo: a.s, nombre: a.n, sector: a.sector, industria: a.industria, tematicas: a.temas, descripcion: (a.empresa || {}).desc, empleados: (a.empresa || {}).empleados, moneda: a.moneda, precio: a.precio, cambio_hoy: a.cambio,
     capitalizacion: a.mcap, valor_razonable: a.vr.valor, potencial: a.vr.pot, etiqueta: a.vr.etiqueta, riesgo: a.vr.riesgo,
     modelos: a.vr.modelos.map(m => ({ modelo: m.n, valor: m.v, usado: m.ok })), supuestos: a.vr.supuestos,
     salud: { total: a.salud.total, etiqueta: a.salud.etiqueta, categorias: Object.fromEntries(Object.entries(a.salud.cat).map(([k, v]) => [k, v.v])) },
@@ -990,8 +997,8 @@ function ctxAccion(a) {
   };
 }
 function ctxUniverso() {
-  return 'simbolo|nombre|sector|etiqueta|potencial%|salud|señal técnica|consenso analistas\n' +
-    D.acciones.map(a => [a.s, a.n, a.sector, a.vr.etiqueta, a.vr.pot != null ? Math.round(a.vr.pot * 100) : '', a.salud.total ?? '', a.tec.senal || '', a.an.consenso || ''].join('|')).join('\n');
+  return 'simbolo|nombre|sector|temáticas|etiqueta|potencial%|salud|señal técnica|consenso analistas\n' +
+    D.acciones.map(a => [a.s, a.n, a.sector, (a.temas || []).join(', '), a.vr.etiqueta, a.vr.pot != null ? Math.round(a.vr.pot * 100) : '', a.salud.total ?? '', a.tec.senal || '', a.an.consenso || ''].join('|')).join('\n');
 }
 async function generarInforme() {
   const a = actual, b = $('#btn-inf'), o = $('#inf');
@@ -1408,6 +1415,7 @@ document.addEventListener('click', e => {
   if (t.dataset.cart) { cartAbierta = cartAbierta === t.dataset.cart ? null : t.dataset.cart; return pintarCarteras(); }
   if (t.dataset.sug) return enviarChat(t.dataset.sug);
   if (t.dataset.copiar) return copiarCodigo();
+  if (t.dataset.tema) { st.tema = t.dataset.tema; st.sector = ''; history.back(); irA('mercado'); $('#tema').value = st.tema; $('#sector').value = ''; return pintarLista(); }
   if (t.dataset.ntf) { ntFiltro = t.dataset.ntf; return pintarNoticias(); }
   switch (t.id) {
     case 'f-cerrar': return history.back();
@@ -1449,6 +1457,7 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.id === 'sector') { st.sector = t.value; pintarLista(); }
+  if (t.id === 'tema') { st.tema = t.value; pintarLista(); }
   if (t.id === 'orden') { st.orden = t.value; pintarLista(); }
   if (t.id === 'nt-accion') { ntAccion = t.value; pintarNoticias(); }
   if (t.id === 'tema') { LS.set('tema', t.value); aplicarTema(); if (subtab && $('#ficha').classList.contains('on')) pintarSub(); }

@@ -1,84 +1,189 @@
-# Acciones que analiza la app. Una por línea. Puedes añadir o quitar.
-# Las de la bolsa española llevan .MC al final (ej.: SAN.MC)
+# ACCIONES QUE ANALIZA APEX QUANT PRO
+# Formato:  SÍMBOLO | temáticas separadas por comas (opcional)
+# - Las de la bolsa española llevan .MC al final (ej.: SAN.MC). Alemania .DE, Dinamarca .CO.
+# - Una acción puede ir en varias temáticas. Si repites un símbolo, se juntan sus temáticas.
+# - Además, la app añade sola algunas temáticas según la industria de cada empresa
+#   (semiconductores, automoción, petróleo y gas, minería, defensa, banca…).
+# - Para quitar una acción, borra su línea. Las líneas que empiezan por # se ignoran.
+
+# ---------- Grandes tecnológicas e inteligencia artificial ----------
 AAPL
-MSFT
-NVDA
-AMZN
-GOOGL
-META
-AVGO
-TSLA
+MSFT  | IA
+NVDA  | IA, Semiconductores
+GOOGL | IA
+AMZN  | IA
+META  | IA
+AVGO  | IA, Semiconductores
+TSM   | IA, Semiconductores
+ORCL  | IA
+CRM   | IA
+NOW   | IA
+PLTR  | IA
+SNOW  | IA
+ARM   | IA, Semiconductores
+SMCI  | IA
+DELL  | IA
+ANET  | IA
+MRVL  | IA, Semiconductores
+AMD   | IA, Semiconductores
+ADBE
+INTU
+IBM   | IA
+ACN
+CSCO
+NFLX
+
+# ---------- Semiconductores ----------
+ASML  | Semiconductores
+INTC  | Semiconductores
+QCOM  | Semiconductores
+TXN   | Semiconductores
+MU    | Semiconductores, IA
+AMAT  | Semiconductores
+LRCX  | Semiconductores
+KLAC  | Semiconductores
+ADI   | Semiconductores
+
+# ---------- Ciberseguridad ----------
+CRWD  | Ciberseguridad
+PANW  | Ciberseguridad
+FTNT  | Ciberseguridad
+
+# ---------- Automoción ----------
+TSLA  | Automoción, IA
+TM    | Automoción
+GM    | Automoción
+F     | Automoción
+STLA  | Automoción
+RIVN  | Automoción
+RACE  | Automoción, Lujo
+CIE.MC | Automoción
+
+# ---------- Maquinaria pesada e industria ----------
+CAT   | Maquinaria pesada
+DE    | Maquinaria pesada
+CNH   | Maquinaria pesada
+PCAR  | Maquinaria pesada
+CMI   | Maquinaria pesada
+URI   | Maquinaria pesada
+GE
+HON
+UNP
+
+# ---------- Defensa y aeroespacial ----------
+LMT   | Defensa
+NOC   | Defensa
+GD    | Defensa
+RTX   | Defensa
+BA    | Defensa
+RHM.DE | Defensa
+IDR.MC | Defensa
+
+# ---------- Energías renovables ----------
+NEE   | Energías renovables
+FSLR  | Energías renovables
+ENPH  | Energías renovables
+VWS.CO | Energías renovables
+ORSTED.CO | Energías renovables
+IBE.MC | Energías renovables
+ANE.MC | Energías renovables
+SLR.MC | Energías renovables
+
+# ---------- Combustibles fósiles (petróleo y gas) ----------
+XOM   | Combustibles fósiles
+CVX   | Combustibles fósiles
+SHEL  | Combustibles fósiles
+BP    | Combustibles fósiles
+TTE   | Combustibles fósiles
+COP   | Combustibles fósiles
+OXY   | Combustibles fósiles
+EOG   | Combustibles fósiles
+SLB   | Combustibles fósiles
+REP.MC | Combustibles fósiles
+
+# ---------- Materias primas y minería ----------
+FCX   | Materias primas
+NEM   | Materias primas
+BHP   | Materias primas
+RIO   | Materias primas
+VALE  | Materias primas
+ALB   | Materias primas
+SCCO  | Materias primas
+NUE   | Materias primas
+LIN   | Materias primas
+MTS.MC | Materias primas
+ACX.MC | Materias primas
+
+# ---------- Banca, pagos y finanzas ----------
 BRK-B
-JPM
-LLY
+JPM   | Banca
+BAC   | Banca
+WFC   | Banca
+GS    | Banca
 V
 MA
-UNH
-XOM
-COST
-HD
-PG
-JNJ
-WMT
-NFLX
-ABBV
-BAC
-CRM
-ORCL
-CVX
-KO
-MRK
-AMD
-PEP
-TMO
-ADBE
-LIN
-ACN
-MCD
-CSCO
-ABT
-WFC
-IBM
-GE
-TXN
-QCOM
-INTU
-AMGN
-PM
-CAT
-DIS
-VZ
-ISRG
-NOW
-GS
-UBER
-PFE
-AMAT
-T
-RTX
 SPGI
-NEE
+
+# ---------- Salud y farmacia ----------
+LLY
+UNH
+JNJ
+ABBV
+MRK
+PFE
+TMO
+ABT
+AMGN
+ISRG
+NVO
+
+# ---------- Consumo ----------
+WMT
+COST
+PG
+KO
+PEP
+PM
+MCD
+HD
 LOW
-HON
-BKNG
-UNP
-PLTR
-MU
-INTC
 NKE
 SBUX
-BA
+DIS
 DRI
-ASML
-TSM
-NVO
-SAN.MC
-BBVA.MC
-ITX.MC
-IBE.MC
-TEF.MC
-REP.MC
-CABK.MC
-AENA.MC
-FER.MC
+BKNG
+UBER
+
+# ---------- Telecomunicaciones y eléctricas ----------
+T
+VZ
+
+# ---------- IBEX 35 (bolsa española) ----------
 ACS.MC
+AENA.MC
+AMS.MC
+ANA.MC   | Energías renovables
+BBVA.MC  | Banca
+BKT.MC   | Banca
+CABK.MC  | Banca
+CLNX.MC
+COL.MC
+ELE.MC
+ENG.MC
+FDR.MC
+FER.MC
+GRF.MC
+IAG.MC
+ITX.MC   | Lujo
+LOG.MC
+MAP.MC
+MRL.MC
+NTGY.MC
+PUIG.MC  | Lujo
+RED.MC   | Energías renovables
+ROVI.MC
+SAB.MC   | Banca
+SAN.MC   | Banca
+SCYR.MC
+TEF.MC
+UNI.MC   | Banca

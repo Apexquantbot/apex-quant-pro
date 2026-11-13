@@ -157,6 +157,58 @@ def descargar(sym):
     return info, hist, inc, cf, bs, rec, cal, divs
 
 
+# --------------------------------------------------------- lista y temáticas
+TEMAS = {}
+
+# Temáticas que se añaden solas según la industria que da Yahoo Finance
+TEMAS_INDUSTRIA = {
+    "Semiconductors": "Semiconductores", "Semiconductor Equipment & Materials": "Semiconductores",
+    "Auto Manufacturers": "Automoción", "Auto Parts": "Automoción",
+    "Farm & Heavy Construction Machinery": "Maquinaria pesada",
+    "Oil & Gas Integrated": "Combustibles fósiles", "Oil & Gas E&P": "Combustibles fósiles",
+    "Oil & Gas Equipment & Services": "Combustibles fósiles", "Oil & Gas Refining & Marketing": "Combustibles fósiles",
+    "Oil & Gas Midstream": "Combustibles fósiles", "Oil & Gas Drilling": "Combustibles fósiles",
+    "Thermal Coal": "Combustibles fósiles",
+    "Solar": "Energías renovables", "Utilities - Renewable": "Energías renovables",
+    "Aerospace & Defense": "Defensa",
+    "Gold": "Materias primas", "Silver": "Materias primas", "Copper": "Materias primas", "Steel": "Materias primas",
+    "Aluminum": "Materias primas", "Other Industrial Metals & Mining": "Materias primas",
+    "Other Precious Metals & Mining": "Materias primas", "Agricultural Inputs": "Materias primas",
+    "Banks - Diversified": "Banca", "Banks - Regional": "Banca",
+    "Luxury Goods": "Lujo",
+}
+
+
+def leer_tickers():
+    """Lee tickers.txt. Formato: SÍMBOLO | temática1, temática2"""
+    lista = []
+    with open(F_TICK, encoding="utf-8") as f:
+        for linea in f:
+            linea = linea.split("#")[0].strip()
+            if not linea:
+                continue
+            partes = linea.split("|")
+            sym = partes[0].strip().upper()
+            if not sym:
+                continue
+            if sym not in lista:
+                lista.append(sym)
+            if len(partes) > 1:
+                for t in partes[1].split(","):
+                    t = t.strip()
+                    if t and t not in TEMAS.setdefault(sym, []):
+                        TEMAS[sym].append(t)
+    return lista
+
+
+def temas_de(sym, industria):
+    t = list(TEMAS.get(sym, []))
+    auto = TEMAS_INDUSTRIA.get(industria or "")
+    if auto and auto not in t:
+        t.append(auto)
+    return t
+
+
 # ------------------------------------------------------------- tipo de cambio
 _FX = {}
 
@@ -1153,9 +1205,7 @@ def main():
         print("Prueba terminada (no se han actualizado los datos).")
         return
 
-    with open(F_TICK, encoding="utf-8") as f:
-        tickers = [l.split("#")[0].strip().upper() for l in f]
-    tickers = list(dict.fromkeys([t for t in tickers if t]))
+    tickers = leer_tickers()
     print(f"Analizando {len(tickers)} acciones…")
 
     try:
@@ -1234,6 +1284,7 @@ def main():
         out.append({
             "s": a["s"], "n": a["n"], "sector": a["sector"], "industria": a["industria"], "pais": a["pais"],
             "empresa": a["empresa"],
+            "temas": temas_de(a["s"], a["industria"]),
             "logo": ("logos/" + nombre_logo(a["s"])) if os.path.exists(os.path.join(D_LOGOS, nombre_logo(a["s"]))) else None,
             "moneda": a["moneda"], "precio": rd(a["precio"], 4), "cambio": rd(a["cambio"]), "mcap": a["mcap"],
             "beta": rd(a["beta"], 2), "eps": rd(a["eps"]), "eps_f": rd(a["eps_f"]), "div": rd(a["div"]),
