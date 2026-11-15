@@ -268,6 +268,33 @@ a{color:var(--ac)}
 .nt-tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:var(--r3);padding:3px 9px 3px 4px;font-size:12.5px;font-weight:600;background:var(--sf2)}
 .nt-tag .logo{width:20px;height:20px;border-radius:6px;font-size:8px;padding:2px}
 #print-area{display:none}
+/* ===== Apaisado: móvil girado, tablet o pantalla del coche =====
+   El menú de abajo pasa a una barra vertical a la izquierda y el contenido
+   usa todo el ancho. En vertical se ve igual que antes. */
+@media (orientation:landscape) and (min-width:700px), (min-width:900px){
+  body{padding-left:calc(88px + env(safe-area-inset-left,0px))}
+  .tabs{top:0;bottom:0;right:auto;width:calc(88px + env(safe-area-inset-left,0px));grid-template-columns:none;grid-auto-rows:min-content;align-content:center;gap:4px;border-top:0;border-right:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top,0px)) 4px calc(8px + env(safe-area-inset-bottom,0px)) calc(4px + env(safe-area-inset-left,0px));overflow-y:auto}
+  .tab{font-size:11px;padding:5px 0}
+  .top>*{max-width:1180px;margin-left:auto;margin-right:auto}
+  .top .indices{margin-left:auto;margin-right:auto;padding:0 0 2px}
+  main{max-width:1180px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+  .f-cuerpo{max-width:1180px}
+  .entrada{left:calc(88px + env(safe-area-inset-left,0px));bottom:0;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  .entrada .in{max-width:1180px}
+  #v-asistente{padding-bottom:90px}
+  .toast{left:calc(50% + 44px);bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+}
+/* Pantallas anchas: las listas de acciones y noticias en dos columnas */
+@media (orientation:landscape) and (min-width:820px), (min-width:1000px){
+  #lista,#nt-lista,#favs .lista,#cambios .lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  #lista>:nth-child(odd),#nt-lista>:nth-child(odd),#favs .lista>:nth-child(odd),#cambios .lista>:nth-child(odd){border-right:1px solid var(--line)}
+  #lista>:nth-last-child(2):nth-child(odd),#nt-lista>:nth-last-child(2):nth-child(odd),#favs .lista>:nth-last-child(2):nth-child(odd),#cambios .lista>:nth-last-child(2):nth-child(odd){border-bottom:0}
+  #lista>.vacio:only-child,#nt-lista>.vacio:only-child{grid-column:1/-1;border-right:0}
+}
+/* Poca altura (móvil girado, coche): la cabecera deja de ir fija para ganar espacio */
+@media (orientation:landscape) and (max-height:520px){
+  .top{position:static;padding-top:8px}
+}
 @media print{
   body>*:not(#print-area){display:none!important}
   #print-area{display:block;color:#000;font-family:var(--f-tx);padding:10mm}
@@ -448,7 +475,7 @@ a{color:var(--ac)}
 
 <script>
 'use strict';
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 /* ---------- utilidades ---------- */
 const $ = s => document.querySelector(s);
