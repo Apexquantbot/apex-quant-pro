@@ -13,6 +13,7 @@ NVDA  | IA, Semiconductores
 GOOGL | IA
 AMZN  | IA
 META  | IA
+ANT   | IA
 AVGO  | IA, Semiconductores
 TSM   | IA, Semiconductores
 ORCL  | IA
