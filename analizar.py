@@ -40,6 +40,7 @@ F_CART = os.path.join(BASE, "carteras.json")
 F_TICK = os.path.join(BASE, "tickers.txt")
 F_AVISOS = os.path.join(BASE, "avisos.json")
 F_NOTICIAS = os.path.join(BASE, "noticias.json")
+F_ENVIADOS = os.path.join(BASE, "enviados.json")   # avisos ya mandados (para no repetirlos)
 D_LOGOS = os.path.join(BASE, "logos")
 
 INDICES = [("^GSPC", "S&P 500"), ("^IXIC", "Nasdaq"), ("^DJI", "Dow Jones"), ("^IBEX", "IBEX 35")]
@@ -1119,7 +1120,31 @@ def leer_config_push():
     return cfg if cfg["_devs"] else None
 
 
-def enviar_push(cfg, avisos):
+def quitar_repetidos(avisos, horas=96):
+    """El bot se lanza varias veces seguidas en cada franja (y también el fin de semana).
+    Para no mandar el mismo aviso una y otra vez, se recuerda lo enviado durante 4 días."""
+    ahora = time.time()
+    try:
+        with open(F_ENVIADOS, encoding="utf-8") as f:
+            hechos = {k: v for k, v in json.load(f).items() if ahora - v < horas * 3600}
+    except Exception:
+        hechos = {}
+    nuevos = []
+    for a in avisos:
+        clave = a["titulo"] + "|" + a.get("texto", "")
+        if clave not in hechos:
+            nuevos.append(a)
+            hechos[clave] = ahora
+    with open(F_ENVIADOS, "w", encoding="utf-8") as f:
+        json.dump(hechos, f, ensure_ascii=False, indent=0)
+    if len(nuevos) < len(avisos):
+        print(f"Avisos repetidos que no se vuelven a mandar: {len(avisos) - len(nuevos)}")
+    return nuevos
+
+
+def enviar_push(cfg, avisos, filtrar=True):
+    if filtrar and cfg and avisos:
+        avisos = quitar_repetidos(avisos)
     if not cfg or not avisos:
         return
     try:
@@ -1201,7 +1226,7 @@ def main():
     if os.environ.get("PRUEBA", "").lower() == "true":
         if not cfg_push:
             raise SystemExit("No hay código de notificaciones. Crea el secreto PUSH_CONFIG con el código que copia la app.")
-        enviar_push(cfg_push, [{"titulo": "Apex Quant Pro", "texto": "✅ Las notificaciones funcionan correctamente.", "url": "./", "tag": "prueba"}])
+        enviar_push(cfg_push, [{"titulo": "Apex Quant Pro", "texto": "✅ Las notificaciones funcionan correctamente.", "url": "./", "tag": "prueba"}], filtrar=False)
         print("Prueba terminada (no se han actualizado los datos).")
         return
 
