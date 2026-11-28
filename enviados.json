@@ -1,8 +1,4 @@
 {
-"★ NVDA: Sobrevalorado → Razonable|NVIDIA Corporation. Potencial frente al valor razonable: -8%.": 1795531508.6057792,
-"★ AMD: Sobrevalorado → Caro|Advanced Micro Devices, Inc.. Potencial frente al valor razonable: -31%.": 1795531508.6057792,
-"★ TSLA: señal técnica Compra|Tesla, Inc.. Antes: Neutral.": 1795531508.6057792,
-"★ AMD: Caro → Sobrevalorado|Advanced Micro Devices, Inc.. Potencial frente al valor razonable: -18%.": 1795532154.0245576,
 "★ AMD: Sobrevalorado → Caro|Advanced Micro Devices, Inc.. Potencial frente al valor razonable: -30%.": 1795540206.2852035,
 "★ TSLA: señal técnica Venta|Tesla, Inc.. Antes: Compra.": 1795540206.2852035,
 "★ BAC: Infravalorado → Razonable|Bank of America Corporation. Potencial frente al valor razonable: +10%.": 1795540206.2852035,
@@ -70,5 +66,6 @@
 "★ INTC sube un 5.4% hoy|Intel Corporation cierra en 57.40 USD.": 1795813536.8091013,
 "★ QCOM sube un 6.3% hoy|QUALCOMM Incorporated cierra en 179.27 USD.": 1795813536.8091013,
 "★ TSLA sube un 5.2% hoy|Tesla, Inc. cierra en 400.00 USD.": 1795813536.8091013,
-"★ NEM sube un 5.3% hoy|Newmont Corporation cierra en 106.87 USD.": 1795813536.8091013
+"★ NEM sube un 5.3% hoy|Newmont Corporation cierra en 106.87 USD.": 1795813536.8091013,
+"SHEL: Infravalorado → Ganga|Shell plc. Potencial frente al valor razonable: +32%.": 1795885744.4202533
 }
